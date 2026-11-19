@@ -28,7 +28,7 @@ from .connectors.safra_ri import SafraRiConnector
 from .connectors.susep_ses import SusepSesConnector
 from .manifest import Checkpoint, load_checkpoint, read_entries, save_checkpoint, ultimas_por_url
 from .calendario import desde_para_atualizar, vencida
-from .gold import VIEWS_EXPORTAVEIS, _bi, conciliacao_fundos, conectar_gold, criar_gold, exportar_view, resumo_safra
+from .gold import VIEWS_EXPORTAVEIS, _bi, _pct, conciliacao_fundos, conectar_gold, criar_gold, exportar_view, resumo_safra
 from .importacao_manual import FONTE_RI, TIPOS_VALIDOS, importar_manual
 from .reprocessar import reprocessar_fonte
 from .resolver import resolver_entidades
@@ -260,12 +260,13 @@ def _imprimir_gold(settings: Settings, resultado) -> None:
         for linha in resumo_safra(con):
             typer.echo("  " + linha)
         for c in conciliacao_fundos(con):
-            if c["pl_deduplicado_visao"] is None:
+            if c["pl_dedup_visao"] is None:
                 typer.echo(f"  [conciliacao] {c['id']}: sem PL no gold para {c['data_base']}")
                 continue
             typer.echo(
-                f"  [conciliacao] {c['id']} ({c['visao']}, {c['data_base']}): referencia {_bi(c['valor_referencia'])}; "
-                f"gold {_bi(c['pl_deduplicado_visao'])}; diferenca {_bi(c['diferenca'])} ({c['diferenca_pct']:+.1%})"
+                f"  [conciliacao] {c['id']} ({c['componentes']}; {c['data_base']}): referencia {_bi(c['valor_referencia'])}; "
+                f"gold {_bi(c['valor_gold'])}; diferenca {_bi(c['diferenca'])} ({_pct(c['diferenca_pct'])}); "
+                f"cenario minimo {_bi(c['valor_gold_minimo'])} ({_pct(c['diferenca_minimo_pct'])})"
             )
     finally:
         con.close()

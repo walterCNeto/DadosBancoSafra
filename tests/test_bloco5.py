@@ -42,10 +42,16 @@ RESOLVIDAS = {
     }},
 }
 REFERENCIAS = {
-    "fundos_referencias": [{
-        "id": "ref_teste", "descricao": "ref", "data_referencia": "2026-09-30", "valor_mil_reais": 150000,
-        "visao": "administrado", "fonte": "teste",
-    }],
+    "referencias": {
+        "fundos_administrados": {"data_referencia": "2026-09-30", "valor_mil_reais": 150000, "fonte": "nota9-fundos"},
+        "previdencia_consolidada": {"data_referencia": "2026-09-30", "valor_mil_reais": 10000, "fonte": "nota9-prev"},
+    },
+    "conciliacoes_fundos": [
+        {"id": "fundos_administrados", "descricao": "a", "referencia": ["fundos_administrados"], "visao": "administrado",
+         "inclui_previdencia_ses": False},
+        {"id": "total", "descricao": "b", "referencia": ["fundos_administrados", "previdencia_consolidada"],
+         "visao": "administrado", "inclui_previdencia_ses": True},
+    ],
     "reclamacoes_nomes": [
         {"instituicao": "SAFRA (conglomerado)", "grupo": "safra", "entidade": "banco_safra"},
         {"instituicao": "ITAU (conglomerado)", "grupo": "pares", "entidade": "itau_unibanco"},
@@ -142,7 +148,8 @@ def silver_juros(st: Settings) -> None:
 
 def silver_reclamacoes(st: Settings) -> None:
     def r(inst, indice, grupo=None, tipo="Conglomerado", cnpj=None):
-        return {"ano": 2026, "periodo": 3, "tipo_instituicao": tipo, "instituicao": inst, "cnpj_if": cnpj, "indice": indice,
+        return {"ano": 2026, "periodo": 3, "categoria": "Top 15", "tipo_instituicao": tipo,
+                "qtd_procedentes_extrapoladas": int(indice), "qtd_analisadas": 10, "instituicao": inst, "cnpj_if": cnpj, "indice": indice,
                 "qtd_reclamacoes_respondidas": 100, "qtd_procedentes": 50, "qtd_clientes_total": 1_000_000, "data_base": "202609",
                 "grupo": grupo, "is_safra": grupo == "safra"}
     _silver(st, "bcb_reclamacoes/202609.parquet", [
@@ -164,7 +171,9 @@ def silver_estban(st: Settings) -> None:
 
 
 # --- fundos: ver comentarios do teste de fundos para os valores esperados
-F1, F2, F3, F4, F5, F6 = ("11111111000111", "22222222000122", "33333333000133", "44444444000144", "55555555000155", "66666666000166")
+F1, F2, F3, F4, F5, F6, F8 = (
+    "11111111000111", "22222222000122", "33333333000133", "44444444000144", "55555555000155", "66666666000166",
+    "88888888000188")
 SAFRA_ASSET, TERCEIRO = "65913436000100", "99999999000199"
 
 
@@ -175,6 +184,10 @@ def silver_fundos(st: Settings) -> None:
         {"cnpj_classe": F3, "cnpj_administrador": TERCEIRO, "cpf_cnpj_gestor": SAFRA_ASSET},      # so gestor
         {"cnpj_classe": F4, "cnpj_administrador": TERCEIRO, "cpf_cnpj_gestor": TERCEIRO},         # fora do grupo
         {"cnpj_classe": F5, "cnpj_administrador": SAFRA_ASSET, "cpf_cnpj_gestor": TERCEIRO},      # so subclasses no informe
+    ])
+    # F8: so existe no cadastro de FUNDO (nao tem registro de classe com o mesmo CNPJ)
+    _silver(st, "cvm_fundos_cad/registro_fundo/202611.parquet", [
+        {"cnpj_fundo": F8, "cnpj_administrador": SAFRA_ASSET, "cpf_cnpj_gestor": TERCEIRO},
     ])
     _silver(st, "cvm_fundos_cad/cad_fi_legado/202611.parquet", [
         {"cnpj_fundo": F1, "cnpj_admin": TERCEIRO, "cpf_cnpj_gestor": TERCEIRO},                  # defasado: o cadastro novo prevalece
@@ -189,20 +202,30 @@ def silver_fundos(st: Settings) -> None:
         linhas += [inf(d, F1, 100e6), inf(d, F1, 100e6, "S1"),          # classe + subclasse: conta so a classe
                    inf(d, F2, 50e6), inf(d, F3, 30e6), inf(d, F4, 999e6),
                    inf(d, F5, 20e6, "S1"), inf(d, F5, 10e6, "S2"),       # sem linha de classe: soma das subclasses
-                   inf(d, F6, 5e6)]
+                   inf(d, F6, 5e6), inf(d, F8, 8e6)]
     # outubro: dia 29 cheio, dia 30 parcial (so 1 de 7 fundos) -> o ultimo dia considerado e 29
-    linhas += [inf(date(2026, 10, 29), c, 1e6) for c in (F1, F2, F3, F4, F5, F6)]
+    linhas += [inf(date(2026, 10, 29), c, 1e6) for c in (F1, F2, F3, F4, F5, F6, F8)]
     linhas += [inf(date(2026, 10, 30), F1, 1e6)]
     _silver(st, "cvm_fundos_informe/202609.parquet", linhas)
 
     def cda(holder, held, valor, d=date(2026, 9, 30)):
-        return {"cnpj_fundo_classe": holder, "dt_comptc": d, "cnpj_fundo_classe_cota": held, "vl_merc_pos_final": float(valor)}
+        return {"cnpj_fundo_classe": holder, "dt_comptc": d, "cnpj_fundo_classe_cota": held, "vl_merc_pos_final": float(valor),
+                "tp_aplic": "Cotas de Fundos", "bloco": "fi_BLC_2"}
     _silver(st, "cvm_fundos_cda/202609.parquet", [
         cda(F1, F2, 20e6),    # F1 e F2 sao administrados: sai da visao administrado, e da ambos
         cda(F1, F3, 7e6),     # F1 e F3 sao geridos: sai da visao gerido, e da ambos; F3 nao e administrado
         cda(F4, F1, 5e6),     # detentor fora do grupo: ignorado
         cda(F1, F4, 3e6),     # cotizado fora do grupo: ignorado
-        {"cnpj_fundo_classe": F2, "dt_comptc": date(2026, 9, 30), "cnpj_fundo_classe_cota": None, "vl_merc_pos_final": 11e6},
+        cda(F1, F8, 3e6),     # F8 so e conhecido pelo cadastro de FUNDO: o cruzamento usa fundos E classes
+        # posicoes confidenciais (arquivo CONFID pos-RCVM 175): "Cotas de Fundos" SEM CNPJ do ativo
+        {"cnpj_fundo_classe": F2, "dt_comptc": date(2026, 9, 30), "cnpj_fundo_classe_cota": None, "vl_merc_pos_final": 11e6,
+         "tp_aplic": "Cotas de Fundos", "bloco": "fi_CONFID"},
+        {"cnpj_fundo_classe": F1, "dt_comptc": date(2026, 9, 30), "cnpj_fundo_classe_cota": None, "vl_merc_pos_final": 9e6,
+         "tp_aplic": "Cotas de Fundos", "bloco": "fi_CONFID"},
+        {"cnpj_fundo_classe": F4, "dt_comptc": date(2026, 9, 30), "cnpj_fundo_classe_cota": None, "vl_merc_pos_final": 77e6,
+         "tp_aplic": "Cotas de Fundos", "bloco": "fi_CONFID"},      # detentor fora do grupo: ignorado
+        {"cnpj_fundo_classe": F1, "dt_comptc": date(2026, 9, 30), "cnpj_fundo_classe_cota": None, "vl_merc_pos_final": 55e6,
+         "tp_aplic": "Debêntures", "bloco": "fi_CONFID"},           # nao e cota: ignorado
     ])
 
 
@@ -217,8 +240,11 @@ def silver_ses(st: Settings) -> None:
         seg("202602", "03182", None, 999.0, 999.0, 999.0, 999.0),  # candidato nao aprovado: sem grupo, fora
     ])
     _silver(st, "susep_ses/pl_margem/202609.parquet", [
-        {"codigo_fip": "01627", "damesano": "202602", "pl": 200.0, "plajustado": 180.0, "margem": 10.0}])
-    _silver(st, "susep_ses/prov/202609.parquet", [{"codigo_fip": "01627", "damesano": "202602", "valor": 300.0}])
+        {"codigo_fip": "01627", "damesano": "202602", "pl": 200.0, "plajustado": 180.0, "margem": 10.0, "grupo": "safra"},
+        {"codigo_fip": "01627", "damesano": "202609", "pl": 4e6, "plajustado": 3e6, "margem": 1e6, "grupo": "safra"},
+        {"codigo_fip": "05444", "damesano": "202609", "pl": 999e6, "plajustado": 1.0, "margem": 1.0, "grupo": "pares"}])
+    _silver(st, "susep_ses/prov/202609.parquet", [
+        {"codigo_fip": "01627", "damesano": "202602", "valor": 300.0}, {"codigo_fip": "01627", "damesano": "202609", "valor": 30e6}])
     _silver(st, "susep_ses/cadastro/202609.parquet", [{"codigo_fip": "01627", "nome": "SAFRA SEGUROS GERAIS S.A."}])
 
 
@@ -284,10 +310,10 @@ def test_capital_safra_vs_pares_exclui_nao_configurados(gold_st):
     assert [l["entidade"] for l in linhas] == ["banco_safra", "bradesco", "itau_unibanco"]  # Avenue de fora
     s = linhas[0]
     assert s["data_base"] == date(2026, 6, 30) and s["grupo"] == "safra"
-    assert s["indice_basileia"] == 0.18 and s["indice_basileia_mediana_pares"] == 0.155
-    assert s["indice_basileia_dif_pares"] == 0.025
+    assert s["indice_basileia"] == 18.0 and s["indice_basileia_mediana_pares"] == 15.5
+    assert s["indice_basileia_dif_pares"] == 2.5
     assert s["patrimonio_referencia"] == 29e9 and s["rwa_total"] == 160e9 and s["rwa_mercado"] == 11e9
-    assert s["indice_capital_principal"] == 0.11 and s["indice_nivel_1"] == 0.15
+    assert s["indice_capital_principal"] == 11.0 and s["indice_nivel_1"] == 15.0
 
 
 def test_balanco_dre_roe_roa_anualizados_e_lucro_trimestral(gold_st):
@@ -295,21 +321,21 @@ def test_balanco_dre_roe_roa_anualizados_e_lucro_trimestral(gold_st):
     t1, t2 = por_db[date(2026, 3, 31)], por_db[date(2026, 6, 30)]
     assert t1["lucro_liquido_trimestre"] == 100 and t2["lucro_liquido_trimestre"] == 150
     # 202606: lucro acum. 250 em 6 meses -> 500 anualizado; PL base = media(1200, 800 de dez/2025) = 1000
-    assert t2["pl_base_roe"] == 1000 and t2["base_media"] is True and t2["roe_anualizado"] == 0.5
-    assert t2["roa_anualizado"] == round(250 * 2 / ((12000 + 9000) / 2), 3)
+    assert t2["pl_base_roe"] == 1000 and t2["base_media"] is True and t2["roe_anualizado"] == 50.0
+    assert t2["roa_anualizado"] == round(100 * 250 * 2 / ((12000 + 9000) / 2), 3)
     assert por_db[date(2025, 12, 31)]["base_media"] is False and por_db[date(2025, 12, 31)]["lucro_liquido_trimestre"] is None
     # Cosif: ativo = 1000000009 + 2000000008; lucro = credor + devedor
     assert t1["ativo_total_cosif"] == 10000 and t1["dif_ativo_cosif_vs_ifdata"] == 0
     assert t2["lucro_liquido_acum_cosif"] == 250 and t2["patrimonio_liquido_cosif"] == 950 + 330 - 80
     # pares: ROE = 50*2/500 = 0.2 (sem PL de dez/2025 usa o PL do periodo); mediana dos pares
     assert _q(gold_st, "select roe_anualizado_mediana_pares m from gold.balanco_dre where entidade = 'banco_safra' "
-                       "and data_base = '2026-06-30'")[0]["m"] == 0.2
+                       "and data_base = '2026-06-30'")[0]["m"] == 20.0
 
 
 def test_carteira_cortes_e_participacao(gold_st):
     linhas = {(l["corte"], l["categoria"]): l for l in _q(gold_st, "select * from gold.carteira where grupo = 'safra'")}
-    assert linhas[("indexador", "Prefixado")]["participacao_na_carteira"] == 0.6
-    assert linhas[("porte", "Grande")]["valor"] == 250 and linhas[("porte", "Grande")]["participacao_na_carteira"] == 0.25
+    assert linhas[("indexador", "Prefixado")]["participacao_na_carteira"] == 60.0
+    assert linhas[("porte", "Grande")]["valor"] == 250 and linhas[("porte", "Grande")]["participacao_na_carteira"] == 25.0
     assert linhas[("modalidade", "Capital de Giro")]["valor"] == 175  # so a coluna Total
     assert not any(c == "nivel_risco" for c, _ in linhas)  # sem relatorio de nivel de risco no silver
 
@@ -333,7 +359,9 @@ def test_reclamacoes_rotulo_por_nome_exato_e_por_cnpj(gold_st):
     }  # "OUTRO BANCO" fica sem grupo
     cong = {l["entidade"]: l for l in linhas if l["tipo_instituicao"] == "Conglomerado"}
     assert cong["banco_safra"]["indice_mediana_pares"] == 40 and cong["banco_safra"]["indice_dif_pares"] == 160
-    assert cong["banco_safra"]["reclamacoes_por_100mil_clientes"] == 10
+    # o indice vem do ranking do BCB (nao e recalculado); `indice_recalculado` so confere: extrapoladas por milhao de clientes
+    assert cong["banco_safra"]["indice"] == 200 and cong["banco_safra"]["indice_recalculado"] == 200
+    assert cong["banco_safra"]["categoria"] == "Top 15" and cong["banco_safra"]["qtd_procedentes_extrapoladas"] == 200
 
 
 def test_agencias_contagem_e_mediana_dos_pares(gold_st):
@@ -347,38 +375,100 @@ def test_agencias_contagem_e_mediana_dos_pares(gold_st):
 
 def test_fundos_pl_deduplicado_por_visao(gold_st):
     """Setembro (30/09): classe+subclasse conta so a classe (F1=100); F5 so tem subclasses (20+10=30).
-    administrado = F1+F2+F5+F6(legado) = 100+50+30+5 = 185, menos cotas F1->F2 (20) = 165
+    administrado = F1+F2+F5+F6(legado)+F8(so cadastro de fundo) = 100+50+30+5+8 = 193, menos cotas F1->F2 (20) e F1->F8 (3) = 170
     gerido       = F1+F3 = 130, menos cotas F1->F3 (7) = 123
-    ambos        = F1+F2+F3+F5+F6 = 215, menos 20+7 = 188. F4 (terceiros) e posicoes fora do conjunto ficam de fora."""
+    ambos        = F1+F2+F3+F5+F6+F8 = 223, menos 20+7+3 = 193. F4 (terceiros) e posicoes fora do conjunto ficam de fora.
+    Cotas confidenciais (sem CNPJ do ativo) dos detentores da visao: adm 11+9, gerido 9, ambos 20."""
     f = {(l["data_base"], l["visao"]): l for l in _q(gold_st, "select * from gold.fundos")}
     adm, ger, amb = (f[(date(2026, 9, 30), v)] for v in ("administrado", "gerido", "ambos"))
-    assert (adm["n_fundos"], adm["pl_bruto"], adm["posicoes_em_cotas_do_grupo"], adm["pl_deduplicado"]) == (4, 185e6, 20e6, 165e6)
+    assert (adm["n_fundos"], adm["pl_bruto"], adm["posicoes_em_cotas_do_grupo"], adm["pl_deduplicado"]) == (5, 193e6, 23e6, 170e6)
     assert (ger["n_fundos"], ger["pl_bruto"], ger["posicoes_em_cotas_do_grupo"], ger["pl_deduplicado"]) == (2, 130e6, 7e6, 123e6)
-    assert (amb["n_fundos"], amb["pl_bruto"], amb["posicoes_em_cotas_do_grupo"], amb["pl_deduplicado"]) == (5, 215e6, 27e6, 188e6)
+    assert (amb["n_fundos"], amb["pl_bruto"], amb["posicoes_em_cotas_do_grupo"], amb["pl_deduplicado"]) == (6, 223e6, 30e6, 193e6)
+    assert (adm["cotas_confidenciais_sem_cnpj"], ger["cotas_confidenciais_sem_cnpj"], amb["cotas_confidenciais_sem_cnpj"]) == (20e6, 9e6, 20e6)
+    assert adm["pl_deduplicado_minimo"] == 150e6 and amb["pl_deduplicado_minimo"] == 173e6
     assert adm["data_cda"] == date(2026, 9, 30) and adm["mes_encerrado"] is True
     assert adm["n_fundos_com_cda"] == 2  # F1 e F2 tem linhas no CDA
 
 
+def test_fundos_cruza_cotas_com_cnpj_de_fundo_e_de_classe(gold_st):
+    papel = {l["cnpj"]: l for l in _q(gold_st, "select * from gold.fundos_papel")}
+    assert papel[F8]["administrado"] is True            # so em registro_fundo
+    assert papel[F1]["administrado"] and papel[F1]["gerido"]  # cadastro de classe vence o legado defasado
+    assert papel[F6]["administrado"] and F4 not in papel
+
+
 def test_fundos_ultimo_dia_do_mes_ignora_dia_parcial(gold_st):
     datas = {l["data_base"] for l in _q(gold_st, "select data_base from gold.fundos")}
-    assert datas == {date(2026, 9, 30), date(2026, 10, 29)}  # 30/10 tinha so 1 de 7 fundos
+    assert datas == {date(2026, 9, 30), date(2026, 10, 29)}  # 30/10 tinha so 1 de 8 fundos
     out = _q(gold_st, "select * from gold.fundos where visao = 'ambos' and data_base = '2026-10-29'")[0]
-    assert out["pl_bruto"] == 5e6 and out["posicoes_em_cotas_do_grupo"] == 0 and out["data_cda"] is None
+    assert out["pl_bruto"] == 6e6 and out["posicoes_em_cotas_do_grupo"] == 0 and out["data_cda"] is None
 
 
-def test_fundos_conciliacao_com_referencia_configuravel(gold_st):
-    (c,) = conciliacao_fundos(conectar_gold(gold_st))
-    assert c["id"] == "ref_teste" and c["valor_referencia"] == 150e6  # mil reais -> reais
-    assert c["pl_deduplicado_visao"] == 165e6 and c["diferenca"] == 15e6 and c["diferenca_pct"] == 0.1
-    assert (c["pl_dedup_administrado"], c["pl_dedup_gerido"], c["pl_dedup_ambos"]) == (165e6, 123e6, 188e6)
-    # mudar o valor de referencia no yaml e recriar a gold muda a diferenca
+def test_fundos_decomposicao_por_papel(gold_st):
+    d = {l["papel"]: l for l in _q(gold_st, "select * from gold.fundos_decomposicao where data_base = '2026-09-30'")}
+    assert d["so_administrado"]["pl_bruto"] == 93e6 and d["so_administrado"]["n_fundos"] == 4  # F2+F5+F6+F8
+    assert d["so_gerido"]["pl_bruto"] == 30e6 and d["administra_e_gere"]["pl_bruto"] == 100e6  # F3 / F1
+    assert sum(x["pl_bruto"] for x in d.values()) == 223e6  # = visao `ambos`
+
+
+def test_fundos_conciliacao_a_e_b_com_decomposicao(gold_st):
+    c = {x["id"]: x for x in conciliacao_fundos(conectar_gold(gold_st))}
+    assert set(c) == {"fundos_administrados", "total"}
+    a, t = c["fundos_administrados"], c["total"]
+    # (a) administrado dedup 170 vs 150 (mil reais -> reais)
+    assert a["valor_referencia"] == 150e6 and a["valor_gold"] == 170e6 and a["diferenca"] == 20e6
+    assert a["diferenca_pct"] == 13.333 and a["valor_gold_minimo"] == 150e6 and a["diferenca_minimo_pct"] == 0
+    # (b) administrado dedup + PL SES das seguradoras/previdencia Safra (so grupo safra: 4e6) vs 150+10
+    assert t["componentes"] == "fundos_administrados + previdencia_consolidada" and t["valor_referencia"] == 160e6
+    assert t["pl_ses_safra"] == 4e6 and t["valor_gold"] == 174e6 and t["diferenca"] == 14e6 and t["diferenca_pct"] == 8.75
+    assert t["valor_gold_minimo"] == 154e6 and t["diferenca_minimo_pct"] == -3.75
+    assert t["provisoes_ses_safra"] == 30e6 and t["diferenca_com_provisoes"] == 170e6 + 30e6 - 160e6
+    # decomposicao e administracao fiduciaria para terceiros (administrador Safra, gestor de fora)
+    assert (a["pl_so_administrado"], a["pl_so_gerido"], a["pl_administra_e_gere"]) == (93e6, 30e6, 100e6)
+    assert a["pl_adm_safra_gestor_externo"] == a["pl_so_administrado"]
+    # mudar o yaml e recriar a gold muda a conciliacao
     ref = gold_st.referencias_path()
     dados = yaml.safe_load(ref.read_text(encoding="utf-8"))
-    dados["fundos_referencias"][0]["valor_mil_reais"] = 165000
+    dados["referencias"]["fundos_administrados"]["valor_mil_reais"] = 170000
     ref.write_text(yaml.safe_dump(dados), encoding="utf-8")
     criar_gold(gold_st)
-    (c2,) = conciliacao_fundos(conectar_gold(gold_st))
-    assert c2["diferenca"] == 0 and c2["diferenca_pct"] == 0
+    c2 = {x["id"]: x for x in conciliacao_fundos(conectar_gold(gold_st))}
+    assert c2["fundos_administrados"]["diferenca"] == 0 and c2["fundos_administrados"]["diferenca_pct"] == 0
+
+
+def test_referencias_invalidas_sao_rejeitadas():
+    from safra_dados.gold import referencias_fundos
+    base = {"referencias": {"a": {"data_referencia": "2026-09-30", "valor_mil_reais": 1},
+                            "b": {"data_referencia": "2026-06-30", "valor_mil_reais": 2}}}
+    with pytest.raises(ValueError, match="inexistentes"):
+        referencias_fundos({**base, "conciliacoes_fundos": [{"id": "x", "referencia": ["z"], "visao": "ambos"}]})
+    with pytest.raises(ValueError, match="mistura datas"):
+        referencias_fundos({**base, "conciliacoes_fundos": [{"id": "x", "referencia": ["a", "b"], "visao": "ambos"}]})
+    with pytest.raises(ValueError, match="visao invalida"):
+        referencias_fundos({**base, "conciliacoes_fundos": [{"id": "x", "referencia": ["a"], "visao": "tudo"}]})
+    (linha,) = referencias_fundos({**base, "conciliacoes_fundos": [{"id": "x", "referencia": ["a"], "visao": "gerido"}]})
+    assert linha[4] == 1000.0  # mil reais -> reais
+
+
+# ---------------------------------------------------------------- formatacao
+
+def test_formatacao_3_casas_ptbr():
+    from safra_dados.gold import _bi, _num, _pct
+    assert _pct(18.141) == "18,141%" and _pct(5) == "5,000%" and _pct(None) == "n/d"
+    assert _bi(29.117e9) == "R$ 29,117 bi" and _bi(1234.5e9) == "R$ 1.234,500 bi" and _bi(None) == "n/d"
+    assert _num(207.93) == "207,930"
+
+
+def test_resumos_da_cli_usam_3_casas(gold_st):
+    linhas = resumo_safra(conectar_gold(gold_st))
+    import re
+    for linha in linhas:
+        for m in re.findall(r"R\$ [\d.]+,(\d+) bi", linha):
+            assert len(m) == 3, linha
+        for m in re.findall(r"[\d.]+,(\d+)%", linha):
+            assert len(m) == 3, linha
+    texto = "\n".join(linhas)
+    assert "[fundos]" in texto and "minimo" in texto
 
 
 # ---------------------------------------------------------------- seguros
@@ -389,10 +479,10 @@ def test_seguros_soma_ramos_acumula_no_ano_e_so_aprovados(gold_st):
     fev = next(l for l in linhas if l["codigo_fip"] == "01627" and l["data_base"] == date(2026, 2, 28))
     assert fev["entidade"] == "seguradora_safra" and fev["seguradora"] == "SAFRA SEGUROS GERAIS S.A."
     assert fev["premio_direto"] == 15 and fev["premio_direto_ano"] == 25  # 12+3 em fev, +10 de jan
-    assert fev["sinistralidade"] == 0.2 and fev["sinistralidade_ano"] == 0.15  # (1+2)/(10+10)
+    assert fev["sinistralidade"] == 20.0 and fev["sinistralidade_ano"] == 15.0  # (1+2)/(10+10)
     assert fev["provisoes_tecnicas"] == 300 and fev["patrimonio_liquido"] == 200 and fev["pl_ajustado"] == 180
     # pares em fev: bradesco 8/40=0.2, itau 16/40=0.4 -> mediana 0.3
-    assert fev["sinistralidade_ano_mediana_pares"] == 0.3 and fev["sinistralidade_ano_dif_pares"] == -0.15
+    assert fev["sinistralidade_ano_mediana_pares"] == 30.0 and fev["sinistralidade_ano_dif_pares"] == -15.0
 
 
 # ---------------------------------------------------------------- resumo / exportacao
@@ -401,7 +491,7 @@ def test_resumo_do_safra_cobre_as_views(gold_st):
     texto = "\n".join(resumo_safra(conectar_gold(gold_st)))
     for marca in ("[capital]", "[balanco_dre]", "[carteira]", "[juros]", "[reclamacoes]", "[agencias]", "[fundos]", "[seguros]"):
         assert marca in texto, marca
-    assert "18,0%" in texto  # Basileia do Safra
+    assert "18,000%" in texto  # Basileia do Safra, 3 casas
 
 
 def test_exportar_csv_e_xlsx(gold_st):
@@ -482,7 +572,7 @@ def test_cli_atualizar_dry_run_gold_e_exportar(tmp_path, monkeypatch):
     from safra_dados.cli import app
 
     st = _settings(tmp_path)
-    for f in (silver_ifdata, silver_cosif, silver_fundos):
+    for f in (silver_ifdata, silver_cosif, silver_fundos, silver_ses):
         f(st)
     monkeypatch.setenv("SAFRA_DADOS_CONFIG_DIR", str(st.config_dir))
     monkeypatch.setenv("SAFRA_DADOS_HOME", str(st.data_root))
@@ -497,7 +587,7 @@ def test_cli_atualizar_dry_run_gold_e_exportar(tmp_path, monkeypatch):
 
     r = runner.invoke(app, ["gold"])
     assert r.exit_code == 0, r.output
-    assert "[capital]" in r.output and "[conciliacao] ref_teste" in r.output and "ignorada juros" in r.output
+    assert "[capital]" in r.output and "[conciliacao] fundos_administrados" in r.output and "ignorada juros" in r.output
 
     r = runner.invoke(app, ["exportar", "--view", "capital", "--formato", "csv"])
     assert r.exit_code == 0 and (st.exports_dir / "capital.csv").is_file()

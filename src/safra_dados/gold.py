@@ -38,6 +38,7 @@ SILVER_VIEWS: dict[str, str] = {
     "cda": "cvm_fundos_cda/*.parquet",
     "fundos_classe": "cvm_fundos_cad/registro_classe/*.parquet",
     "fundos_legado": "cvm_fundos_cad/cad_fi_legado/*.parquet",
+    "fundos_fundo": "cvm_fundos_cad/registro_fundo/*.parquet",
     "ses_seguros": "susep_ses/seguros/*.parquet",
     "ses_pl_margem": "susep_ses/pl_margem/*.parquet",
     "ses_prov": "susep_ses/prov/*.parquet",
@@ -109,6 +110,29 @@ def carregar_referencias(settings: Settings) -> dict[str, Any]:
     return yaml.safe_load(caminho.read_text(encoding="utf-8")) or {}
 
 
+def referencias_fundos(refs: dict[str, Any]) -> list[tuple]:
+    """Linhas de `gold.referencias_fundos` a partir de config/referencias.yaml: `referencias` (id -> valor em MIL de
+    reais, data) e `conciliacoes_fundos` (comparacoes: soma de referencias x PL do gold). Valores saem em reais."""
+    base = refs.get("referencias") or {}
+    linhas = []
+    for c in refs.get("conciliacoes_fundos") or []:
+        if c.get("visao") not in ("administrado", "gerido", "ambos"):
+            raise ValueError(f"referencias.yaml: visao invalida em {c.get('id')!r}: {c.get('visao')!r}")
+        comps = c.get("referencia") or []
+        faltam = [x for x in comps if x not in base]
+        if not comps or faltam:
+            raise ValueError(f"referencias.yaml: conciliacao {c.get('id')!r} usa referencias inexistentes: {faltam or comps}")
+        datas = {str(base[x]["data_referencia"]) for x in comps}
+        if len(datas) != 1:
+            raise ValueError(f"referencias.yaml: conciliacao {c.get('id')!r} mistura datas de referencia: {sorted(datas)}")
+        total = sum(float(base[x]["valor_mil_reais"]) for x in comps) * 1000.0
+        linhas.append((
+            c["id"], c.get("descricao"), datas.pop(), " + ".join(comps), total, c["visao"],
+            bool(c.get("inclui_previdencia_ses", False)), "; ".join(str(base[x].get("fonte", "")) for x in comps),
+        ))
+    return linhas
+
+
 # ---------------------------------------------------------------- SQL das views gold
 # (nome, silver necessario, gold necessario, SQL)
 
@@ -133,10 +157,10 @@ base as (
     max(valor) filter (where relatorio = '5' and conta = '134461') as rwa_pagamentos,
     max(valor) filter (where relatorio = '5' and conta = '79658') as exposicao_total,
     max(valor) filter (where relatorio = '5' and conta = '92999') as adicional_capital_principal,
-    round(max(valor) filter (where relatorio = '5' and conta = '79664'), 3) as indice_basileia,
-    round(max(valor) filter (where relatorio = '5' and conta = '79660'), 3) as indice_nivel_1,
-    round(max(valor) filter (where relatorio = '5' and conta = '79659'), 3) as indice_capital_principal,
-    round(max(valor) filter (where relatorio = '5' and conta = '79661'), 3) as razao_alavancagem
+    max(valor) filter (where relatorio = '5' and conta = '79664') as indice_basileia,
+    max(valor) filter (where relatorio = '5' and conta = '79660') as indice_nivel_1,
+    max(valor) filter (where relatorio = '5' and conta = '79659') as indice_capital_principal,
+    max(valor) filter (where relatorio = '5' and conta = '79661') as razao_alavancagem
   from ident group by all
 ),
 cmp as (
@@ -150,12 +174,13 @@ cmp as (
 select data_base, grupo, entidade, cod_inst, instituicao,
   patrimonio_referencia, capital_nivel_1, capital_principal, capital_complementar, capital_nivel_2,
   rwa_total, rwa_credito, rwa_mercado, rwa_operacional, rwa_pagamentos, exposicao_total, adicional_capital_principal,
-  indice_basileia, indice_nivel_1, indice_capital_principal, razao_alavancagem,
-  round(m_bas, 3) as indice_basileia_mediana_pares, round(indice_basileia - m_bas, 3) as indice_basileia_dif_pares,
-  round(m_n1, 3) as indice_nivel_1_mediana_pares, round(indice_nivel_1 - m_n1, 3) as indice_nivel_1_dif_pares,
-  round(m_cp, 3) as indice_capital_principal_mediana_pares,
-  round(indice_capital_principal - m_cp, 3) as indice_capital_principal_dif_pares,
-  round(m_alav, 3) as razao_alavancagem_mediana_pares, round(razao_alavancagem - m_alav, 3) as razao_alavancagem_dif_pares
+  round(100 * indice_basileia, 3) as indice_basileia, round(100 * indice_nivel_1, 3) as indice_nivel_1,
+  round(100 * indice_capital_principal, 3) as indice_capital_principal, round(100 * razao_alavancagem, 3) as razao_alavancagem,
+  round(100 * m_bas, 3) as indice_basileia_mediana_pares, round(100 * (indice_basileia - m_bas), 3) as indice_basileia_dif_pares,
+  round(100 * m_n1, 3) as indice_nivel_1_mediana_pares, round(100 * (indice_nivel_1 - m_n1), 3) as indice_nivel_1_dif_pares,
+  round(100 * m_cp, 3) as indice_capital_principal_mediana_pares,
+  round(100 * (indice_capital_principal - m_cp), 3) as indice_capital_principal_dif_pares,
+  round(100 * m_alav, 3) as razao_alavancagem_mediana_pares, round(100 * (razao_alavancagem - m_alav), 3) as razao_alavancagem_dif_pares
 from cmp
 """
 
@@ -208,11 +233,11 @@ w as (
 ),
 x as (
   select *,
-    round(lucro_liquido_acum * 12.0 / month(data_base) / nullif(pl_base_roe, 0), 3) as roe_anualizado,
-    round(lucro_liquido_acum * 12.0 / month(data_base) / nullif(ativo_base_roa, 0), 3) as roa_anualizado,
-    round(lucro_liquido_acum_cosif * 12.0 / month(data_base) / nullif(pl_base_roe_cosif, 0), 3) as roe_anualizado_cosif,
-    round(lucro_liquido_acum_cosif * 12.0 / month(data_base) / nullif(ativo_base_roa_cosif, 0), 3) as roa_anualizado_cosif,
-    round((ativo_total_cosif - ativo_total) / nullif(ativo_total, 0), 3) as dif_ativo_cosif_vs_ifdata
+    round(100 * lucro_liquido_acum * 12.0 / month(data_base) / nullif(pl_base_roe, 0), 3) as roe_anualizado,
+    round(100 * lucro_liquido_acum * 12.0 / month(data_base) / nullif(ativo_base_roa, 0), 3) as roa_anualizado,
+    round(100 * lucro_liquido_acum_cosif * 12.0 / month(data_base) / nullif(pl_base_roe_cosif, 0), 3) as roe_anualizado_cosif,
+    round(100 * lucro_liquido_acum_cosif * 12.0 / month(data_base) / nullif(ativo_base_roa_cosif, 0), 3) as roa_anualizado_cosif,
+    round(100 * (ativo_total_cosif - ativo_total) / nullif(ativo_total, 0), 3) as dif_ativo_cosif_vs_ifdata
   from w
 )
 select data_base, grupo, entidade, cod_inst, instituicao,
@@ -253,7 +278,7 @@ l as (
     and (relatorio not in ('11', '13') or nome_coluna = 'Total')
 )
 select l.data_base, l.grupo, l.entidade, l.cod_inst, l.corte, l.segmento, l.categoria, l.valor,
-  t.carteira_total, round(l.valor / nullif(t.carteira_total, 0), 3) as participacao_na_carteira
+  t.carteira_total, round(100 * l.valor / nullif(t.carteira_total, 0), 3) as participacao_na_carteira
 from l left join tot t using (data_base, entidade)
 """
 
@@ -286,9 +311,10 @@ from m
 
 _RECLAMACOES = f"""
 with r as (
-  select {_mes('s.data_base')} as data_base, s.ano, s.periodo, s.tipo_instituicao, s.instituicao, s.cnpj_if,
+  select {_mes('s.data_base')} as data_base, s.ano, s.periodo, s.categoria, s.tipo_instituicao, s.instituicao, s.cnpj_if,
     coalesce(n.grupo, s.grupo) as grupo, coalesce(n.entidade, dd.entidade) as entidade,
-    s.indice, s.qtd_reclamacoes_respondidas, s.qtd_procedentes, s.qtd_clientes_total
+    s.indice, s.qtd_reclamacoes_respondidas, s.qtd_procedentes, s.qtd_procedentes_extrapoladas, s.qtd_analisadas,
+    s.qtd_clientes_total
   from silver.reclamacoes s
   left join gold.dim_reclamacao_nome n on n.instituicao = s.instituicao
   left join gold.dim_entidade dd
@@ -299,9 +325,11 @@ f as (
     median(indice) filter (where grupo = 'pares') over (partition by data_base, tipo_instituicao) as m_ind
   from r where grupo is not null
 )
-select data_base, grupo, entidade, instituicao, tipo_instituicao, ano, periodo,
-  round(indice, 3) as indice, qtd_reclamacoes_respondidas, qtd_procedentes, qtd_clientes_total,
-  round(qtd_reclamacoes_respondidas * 100000.0 / nullif(qtd_clientes_total, 0), 3) as reclamacoes_por_100mil_clientes,
+select data_base, grupo, entidade, instituicao, tipo_instituicao, categoria, ano, periodo,
+  round(indice, 3) as indice, qtd_reclamacoes_respondidas, qtd_procedentes, qtd_procedentes_extrapoladas, qtd_analisadas,
+  qtd_clientes_total,
+  -- conferencia: o indice publicado e procedentes extrapoladas por milhao de clientes (CCS e SCR)
+  round(qtd_procedentes_extrapoladas * 1000000.0 / nullif(qtd_clientes_total, 0), 3) as indice_recalculado,
   round(m_ind, 3) as indice_mediana_pares, round(indice - m_ind, 3) as indice_dif_pares
 from f
 """
@@ -324,8 +352,8 @@ select *,
 from e
 """
 
-# papel de cada fundo/classe em relacao ao grupo Safra (administrador e/ou gestor). Preferencia pelo
-# cadastro novo (registro_classe); o legado so vale para CNPJ ausentes dele.
+# papel de cada fundo E classe em relacao ao grupo Safra (administrador e/ou gestor). Preferencia:
+# registro_classe > registro_fundo > legado (cad_fi); o de menor prioridade so vale para CNPJ ausentes dos anteriores.
 _FUNDOS_PAPEL = """
 with safra as (
   select identificador from gold.dim_entidade where grupo = 'safra' and tipo_id = 'cnpj_raiz'
@@ -336,9 +364,15 @@ x as (
     coalesce(left(cpf_cnpj_gestor, 8) in (select identificador from safra), false) as gerido, 1 as prio
   from silver.fundos_classe
   union all
+  -- CNPJ do FUNDO (pos-RCVM 175 o CDA pode apontar para o fundo ou para a classe)
+  select cnpj_fundo,
+    coalesce(left(cnpj_administrador, 8) in (select identificador from safra), false),
+    coalesce(left(cpf_cnpj_gestor, 8) in (select identificador from safra), false), 2
+  from silver.fundos_fundo
+  union all
   select cnpj_fundo,
     coalesce(left(cnpj_admin, 8) in (select identificador from safra), false),
-    coalesce(left(cpf_cnpj_gestor, 8) in (select identificador from safra), false), 2
+    coalesce(left(cpf_cnpj_gestor, 8) in (select identificador from safra), false), 3
   from silver.fundos_legado
 ),
 y as (select * from x qualify prio = min(prio) over (partition by cnpj))
@@ -392,6 +426,18 @@ pos as (
              or (v.visao = 'gerido' and ph.gerido and pc.gerido))
   group by all
 ),
+conf as (
+  -- apos a RCVM 175, quase todas as posicoes em "Cotas de Fundos" vao para o arquivo CONFID do CDA, sem o CNPJ do ativo
+  -- (CNPJ_FUNDO_CLASSE_COTA vazio): nao ha como saber se sao do grupo. Soma por visao do detentor = teto da parte
+  -- nao identificada
+  select d.data_base, v.visao, sum(c.vl_merc_pos_final) as cotas_confidenciais_sem_cnpj
+  from gold.fundos_dias d
+  join gold.fundos_cda_dias k on k.mes = d.mes
+  join silver.cda c on c.dt_comptc = k.data_cda and c.cnpj_fundo_classe_cota is null and c.tp_aplic ilike 'cotas de fundos%'
+  join gold.fundos_papel ph on ph.cnpj = c.cnpj_fundo_classe
+  join v on (v.visao = 'ambos' or (v.visao = 'administrado' and ph.administrado) or (v.visao = 'gerido' and ph.gerido))
+  group by all
+),
 cob as (
   -- cobertura do CDA: fundos da visao com alguma linha de carteira no mes (o CDA do mes mais recente
   -- costuma vir incompleto, o que subestima as cotas do grupo)
@@ -408,26 +454,77 @@ cob as (
 select pl.data_base, 'safra' as grupo, 'fundos_safra' as entidade, pl.visao, pl.n_fundos, pl.pl_bruto,
   coalesce(pos.cotas_do_grupo, 0) as posicoes_em_cotas_do_grupo,
   pl.pl_bruto - coalesce(pos.cotas_do_grupo, 0) as pl_deduplicado,
+  coalesce(conf.cotas_confidenciais_sem_cnpj, 0) as cotas_confidenciais_sem_cnpj,
+  pl.pl_bruto - coalesce(pos.cotas_do_grupo, 0) - coalesce(conf.cotas_confidenciais_sem_cnpj, 0) as pl_deduplicado_minimo,
   pos.data_cda, coalesce(cob.n_fundos_com_cda, 0) as n_fundos_com_cda, d.mes_encerrado
 from pl
 left join pos on pos.data_base = pl.data_base and pos.visao = pl.visao
 left join cob on cob.data_base = pl.data_base and cob.visao = pl.visao
+left join conf on conf.data_base = pl.data_base and conf.visao = pl.visao
 join gold.fundos_dias d on d.data_base = pl.data_base
 """
 
+_FUNDOS_DECOMPOSICAO = """
+-- PL bruto (sem deduplicar) por papel do grupo, nas datas do gold.fundos. O papel `so_administrado` e exatamente o PL de
+-- classes cujo administrador e Safra e o gestor e de fora do grupo (administracao fiduciaria para terceiros)
+with cls as (
+  select i.dt_comptc, i.cnpj_fundo_classe,
+    coalesce(max(i.vl_patrim_liq) filter (where i.id_subclasse is null),
+             sum(i.vl_patrim_liq) filter (where i.id_subclasse is not null)) as pl
+  from silver.informe i join gold.fundos_dias d on i.dt_comptc = d.data_base
+  group by all
+)
+select c.dt_comptc as data_base, 'safra' as grupo, 'fundos_safra' as entidade,
+  case when p.administrado and p.gerido then 'administra_e_gere'
+       when p.administrado then 'so_administrado' else 'so_gerido' end as papel,
+  count(*) as n_fundos, sum(c.pl) as pl_bruto
+from cls c join gold.fundos_papel p on p.cnpj = c.cnpj_fundo_classe
+group by all
+"""
+
 _FUNDOS_CONCILIACAO = """
-select r.id, r.descricao, r.data_referencia as data_base, 'safra' as grupo, 'fundos_safra' as entidade,
-  r.visao, r.valor_referencia, f.data_base as data_base_gold,
-  f.pl_deduplicado as pl_deduplicado_visao, f.pl_bruto as pl_bruto_visao,
-  f.pl_deduplicado - r.valor_referencia as diferenca,
-  round((f.pl_deduplicado - r.valor_referencia) / nullif(r.valor_referencia, 0), 3) as diferenca_pct,
-  a.pl_deduplicado as pl_dedup_administrado, g.pl_deduplicado as pl_dedup_gerido, b.pl_deduplicado as pl_dedup_ambos,
-  r.fonte
-from gold.referencias_fundos r
-left join gold.fundos f on f.visao = r.visao and date_trunc('month', f.data_base) = date_trunc('month', r.data_referencia)
-left join gold.fundos a on a.visao = 'administrado' and a.data_base = f.data_base
-left join gold.fundos g on g.visao = 'gerido' and g.data_base = f.data_base
-left join gold.fundos b on b.visao = 'ambos' and b.data_base = f.data_base
+with ses as (
+  select p.damesano, sum(p.pl) as pl_ses, sum(v.valor) as provisoes_ses
+  from silver.ses_pl_margem p
+  left join silver.ses_prov v on v.codigo_fip = p.codigo_fip and v.damesano = p.damesano
+  where p.grupo = 'safra' group by 1
+),
+dec as (
+  select data_base,
+    sum(pl_bruto) filter (where papel = 'so_administrado') as pl_so_administrado,
+    sum(pl_bruto) filter (where papel = 'so_gerido') as pl_so_gerido,
+    sum(pl_bruto) filter (where papel = 'administra_e_gere') as pl_administra_e_gere
+  from gold.fundos_decomposicao group by 1
+),
+base as (
+  select r.id, r.descricao, r.data_referencia as data_base, r.componentes, r.visao, r.inclui_previdencia_ses,
+    r.valor_referencia, f.data_base as data_base_gold,
+    f.pl_deduplicado as pl_dedup_visao, f.pl_deduplicado_minimo as pl_dedup_minimo_visao,
+    s.pl_ses as pl_ses_safra, s.provisoes_ses as provisoes_ses_safra,
+    r.fonte, f.pl_bruto as pl_bruto_visao, f.posicoes_em_cotas_do_grupo, f.cotas_confidenciais_sem_cnpj
+  from gold.referencias_fundos r
+  left join gold.fundos f on f.visao = r.visao and date_trunc('month', f.data_base) = date_trunc('month', r.data_referencia)
+  left join ses s on s.damesano = strftime(r.data_referencia, '%Y%m')
+)
+select b.id, b.descricao, b.data_base, 'safra' as grupo, 'fundos_safra' as entidade, b.componentes, b.visao,
+  b.inclui_previdencia_ses, b.valor_referencia, b.data_base_gold,
+  b.pl_bruto_visao, b.posicoes_em_cotas_do_grupo, b.cotas_confidenciais_sem_cnpj,
+  b.pl_dedup_visao, b.pl_ses_safra,
+  b.pl_dedup_visao + case when b.inclui_previdencia_ses then coalesce(b.pl_ses_safra, 0) else 0 end as valor_gold,
+  b.pl_dedup_visao + case when b.inclui_previdencia_ses then coalesce(b.pl_ses_safra, 0) else 0 end - b.valor_referencia as diferenca,
+  round(100 * (b.pl_dedup_visao + case when b.inclui_previdencia_ses then coalesce(b.pl_ses_safra, 0) else 0 end
+    - b.valor_referencia) / nullif(b.valor_referencia, 0), 3) as diferenca_pct,
+  -- cenario minimo: tira tambem todas as cotas confidenciais (teto do que pode ser intragrupo)
+  b.pl_dedup_minimo_visao + case when b.inclui_previdencia_ses then coalesce(b.pl_ses_safra, 0) else 0 end as valor_gold_minimo,
+  round(100 * (b.pl_dedup_minimo_visao + case when b.inclui_previdencia_ses then coalesce(b.pl_ses_safra, 0) else 0 end
+    - b.valor_referencia) / nullif(b.valor_referencia, 0), 3) as diferenca_minimo_pct,
+  -- variante informativa: previdencia pelas provisoes tecnicas em vez do PL
+  b.provisoes_ses_safra,
+  b.pl_dedup_visao + coalesce(b.provisoes_ses_safra, 0) - b.valor_referencia as diferenca_com_provisoes,
+  d.pl_so_administrado, d.pl_so_gerido, d.pl_administra_e_gere,
+  d.pl_so_administrado as pl_adm_safra_gestor_externo,
+  b.fonte
+from base b left join dec d on d.data_base = b.data_base_gold
 """
 
 _SEGUROS = f"""
@@ -453,8 +550,8 @@ j as (
 ),
 k as (
   select *,
-    round(sinistro_ocorrido / nullif(premio_ganho, 0), 3) as sinistralidade,
-    round(sinistro_ocorrido_ano / nullif(premio_ganho_ano, 0), 3) as sinistralidade_ano
+    round(100 * sinistro_ocorrido / nullif(premio_ganho, 0), 3) as sinistralidade,
+    round(100 * sinistro_ocorrido_ano / nullif(premio_ganho_ano, 0), 3) as sinistralidade_ano
   from j
 )
 select *,
@@ -473,11 +570,13 @@ VIEWS_GOLD: dict[str, tuple[tuple[str, ...], str]] = {
     "juros": (("juros",), _JUROS),
     "reclamacoes": (("reclamacoes",), _RECLAMACOES),
     "agencias": (("estban",), _AGENCIAS),
-    "fundos_papel": (("fundos_classe", "fundos_legado"), _FUNDOS_PAPEL),
+    "fundos_papel": (("fundos_classe", "fundos_legado", "fundos_fundo"), _FUNDOS_PAPEL),
     "fundos_dias": (("informe",), _FUNDOS_DIAS),
     "fundos_cda_dias": (("cda",), _FUNDOS_CDA_DIAS),
-    "fundos": (("informe", "cda", "fundos_classe", "fundos_legado"), _FUNDOS),
-    "fundos_conciliacao": (("informe", "cda", "fundos_classe", "fundos_legado"), _FUNDOS_CONCILIACAO),
+    "fundos": (("informe", "cda", "fundos_classe", "fundos_legado", "fundos_fundo"), _FUNDOS),
+    "fundos_decomposicao": (("informe", "fundos_classe", "fundos_legado", "fundos_fundo"), _FUNDOS_DECOMPOSICAO),
+    "fundos_conciliacao": (
+        ("informe", "cda", "fundos_classe", "fundos_legado", "fundos_fundo", "ses_pl_margem", "ses_prov"), _FUNDOS_CONCILIACAO),
     "seguros": (("ses_seguros", "ses_pl_margem", "ses_prov", "ses_cadastro"), _SEGUROS),
 }
 VIEWS_EXPORTAVEIS = (
@@ -532,15 +631,10 @@ def criar_gold(settings: Settings, caminho: Path | None = None) -> ResultadoGold
                         [item["instituicao"], item["grupo"], item["entidade"]])
         con.execute(
             "create or replace table gold.referencias_fundos (id varchar, descricao varchar, data_referencia date, "
-            "valor_referencia double, visao varchar, fonte varchar)"
+            "componentes varchar, valor_referencia double, visao varchar, inclui_previdencia_ses boolean, fonte varchar)"
         )
-        for item in refs.get("fundos_referencias") or []:
-            if item.get("visao") not in ("administrado", "gerido", "ambos"):
-                raise ValueError(f"referencias.yaml: visao invalida em {item.get('id')!r}: {item.get('visao')!r}")
-            con.execute("insert into gold.referencias_fundos values (?, ?, ?, ?, ?, ?)", [
-                item["id"], item.get("descricao"), str(item["data_referencia"]),
-                float(item["valor_mil_reais"]) * 1000.0, item["visao"], item.get("fonte"),
-            ])
+        for linha in referencias_fundos(refs):
+            con.execute("insert into gold.referencias_fundos values (?, ?, ?, ?, ?, ?, ?, ?)", linha)
 
         for nome, (requer, sql) in VIEWS_GOLD.items():
             faltam = [r for r in requer if r not in resultado.silver_views]
@@ -596,12 +690,22 @@ def exportar_view(settings: Settings, view: str, formato: str, destino: Path | N
 
 # ---------------------------------------------------------------- resumo
 
+def _virgula(txt: str) -> str:
+    return txt.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 def _bi(x: Any) -> str:
-    return "n/d" if x is None else f"R$ {x / 1e9:,.2f} bi".replace(",", "X").replace(".", ",").replace("X", ".")
+    """R$ em bilhoes com 3 casas (separador decimal virgula): R$ 29,117 bi."""
+    return "n/d" if x is None else _virgula(f"R$ {x / 1e9:,.3f} bi")
 
 
 def _pct(x: Any) -> str:
-    return "n/d" if x is None else f"{x * 100:.1f}%".replace(".", ",")
+    """Recebe o valor JA em % (as views gold guardam indices em %): 18.141 -> 18,141%."""
+    return "n/d" if x is None else _virgula(f"{x:,.3f}%")
+
+
+def _num(x: Any) -> str:
+    return "n/d" if x is None else _virgula(f"{x:,.3f}")
 
 
 def resumo_safra(con: duckdb.DuckDBPyConnection) -> list[str]:
@@ -646,25 +750,28 @@ def resumo_safra(con: duckdb.DuckDBPyConnection) -> list[str]:
             "and periodicidade = 'mensal') and mediana_pares_ao_ano is not null order by modalidade limit 4").fetchall()
         if rows:
             linhas.append("[juros] taxa a.a. Safra vs mediana pares: " + "; ".join(
-                f"{m} {t:.1f}% vs {p:.1f}% (n={n})" for m, t, p, n in rows))
+                f"{m} {_pct(t)} vs {_pct(p)} (n={n})" for m, t, p, n in rows))
     if "reclamacoes" in existentes:
         r = um("select data_base, indice, indice_mediana_pares, qtd_reclamacoes_respondidas from gold.reclamacoes "
                "where grupo = 'safra' order by data_base desc limit 1")
         if r:
-            linhas.append(f"[reclamacoes] {r[0]}: indice {r[1]} (mediana pares {r[2]}), {r[3]} reclamacoes respondidas")
+            linhas.append(f"[reclamacoes] {r[0]}: indice {_num(r[1])} (mediana pares {_num(r[2])}), {r[3]} reclamacoes respondidas")
     if "agencias" in existentes:
         r = um("select data_base, sum(n_agencias), any_value(n_agencias_mediana_pares) from gold.agencias where grupo = 'safra' "
                "group by data_base order by data_base desc limit 1")
         if r:
-            linhas.append(f"[agencias] {r[0]}: {r[1]} agencias (mediana de agencias por par: {r[2]})")
+            linhas.append(f"[agencias] {r[0]}: {r[1]} agencias (mediana de agencias por par: {_num(r[2])})")
     if "fundos" in existentes:
         rows = con.execute(
-            "select visao, n_fundos, pl_bruto, posicoes_em_cotas_do_grupo, pl_deduplicado, data_base, mes_encerrado, n_fundos_com_cda "
-            "from gold.fundos where data_base = (select coalesce(max(data_base) filter (where mes_encerrado), max(data_base)) "
+            "select visao, n_fundos, pl_bruto, posicoes_em_cotas_do_grupo, pl_deduplicado, data_base, mes_encerrado, "
+            "n_fundos_com_cda, cotas_confidenciais_sem_cnpj, pl_deduplicado_minimo from gold.fundos "
+            "where data_base = (select coalesce(max(data_base) filter (where mes_encerrado), max(data_base)) "
             "from gold.fundos) order by visao").fetchall()
-        for v, n, bruto, cotas, dedup, db, enc, ncda in rows:
-            linhas.append(f"[fundos] {db} {v}: {n} fundos, PL bruto {_bi(bruto)} - cotas do grupo {_bi(cotas)} = {_bi(dedup)}"
-                          + f" [CDA em {ncda}/{n} fundos]" + ("" if enc else " (mes em curso)"))
+        for v, n, bruto, cotas, dedup, db, enc, ncda, conf, minimo in rows:
+            linhas.append(
+                f"[fundos] {db} {v}: {n} fundos, PL bruto {_bi(bruto)} - cotas do grupo {_bi(cotas)} = {_bi(dedup)} "
+                f"(minimo, sem cotas confidenciais {_bi(conf)}: {_bi(minimo)}) [CDA em {ncda}/{n} fundos]"
+                + ("" if enc else " (mes em curso)"))
     if "seguros" in existentes:
         rows = con.execute(
             "select data_base, entidade, premio_direto_ano, sinistralidade_ano, sinistralidade_ano_mediana_pares, patrimonio_liquido, "

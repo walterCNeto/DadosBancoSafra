@@ -300,7 +300,7 @@ de que depende existem; as demais sao listadas como `ignorada`. Como as views ap
 `safra-dados atualizar` reingere o silver e recria a gold por garantia.
 
 Todas as views trazem `data_base` (**DATE**, ultimo dia do periodo), `grupo` (`safra`/`pares`) e `entidade` (chave de
-`entidades.yaml`: `banco_safra`, `itau_unibanco`, ...); **valores em reais**; indices e razoes derivados **arredondados a 3 casas**.
+`entidades.yaml`: `banco_safra`, `itau_unibanco`, ...); **valores em reais**; **indices e razoes em % com 3 casas** (`18.141` = 18,141%: Basileia, ROE/ROA, participacoes, sinistralidade, diferencas e medianas dos pares). Os resumos impressos pela CLI usam 3 casas em tudo: percentuais `18,141%` e valores `R$ 29,115 bi`.
 "Mediana dos pares" = mediana entre as entidades do grupo `pares` na mesma `data_base`.
 
 | view | conteudo |
@@ -309,10 +309,10 @@ Todas as views trazem `data_base` (**DATE**, ultimo dia do periodo), `grupo` (`s
 | `gold.balanco_dre` | trimestral: ativo, carteira, captacoes, PL, lucro acumulado no ano e **do trimestre** (IF.data), `roe_anualizado` e `roa_anualizado`, mediana dos pares, e os mesmos valores/ROE/ROA pelo Cosif (documento 4060) com `dif_ativo_cosif_vs_ifdata` |
 | `gold.carteira` | formato longo (`corte`, `segmento`, `categoria`, `valor`, `participacao_na_carteira`): `modalidade` (PF/PJ, coluna Total), `porte` (PJ), `indexador`, `carteira_res4966` (C1-C5, ativos problematicos, inadimplencia) e `nivel_risco` **quando o IF.data coletado trouxer esse relatorio** (hoje nao ha: o relatorio 8 nao esta na silver) |
 | `gold.juros` | taxa a.m./a.a. por modalidade, segmento e periodicidade (mensal/diaria), por entidade, com `mediana_pares_*`, `n_pares` e `dif_ao_ano_vs_mediana_pares`; varias instituicoes da mesma entidade entram como media simples |
-| `gold.reclamacoes` | indice e quantidades do ranking do BCB, com mediana dos pares (por `tipo_instituicao`). Os conglomerados vem sem CNPJ, entao o rotulo grupo/entidade vem de `reclamacoes_nomes` em `config\referencias.yaml` (nome exato do ranking) |
+| `gold.reclamacoes` | linha do ranking do BCB **como publicada** (`indice`, reclamacoes respondidas/procedentes/procedentes extrapoladas/analisadas, clientes CCS+SCR, `categoria`), `indice_recalculado` so para conferencia e mediana dos pares (por `tipo_instituicao`; atencao: o Safra esta em "Demais Bancos..." e os grandes em "Top 15"). Os conglomerados vem sem CNPJ, entao o rotulo grupo/entidade vem de `reclamacoes_nomes` em `config\referencias.yaml` (nome exato do ranking) |
 | `gold.agencias` | Estban: `n_agencias`, `n_municipios` (nivel agencia) e saldos Estban (verbetes 160, 432, 420) por entidade, com a mediana de agencias dos pares |
 | `gold.fundos`, `gold.fundos_conciliacao` | PL do grupo deduplicado (ver abaixo) |
-| `gold.seguros` | SES: premios (mes e acumulado no ano), sinistros, **sinistralidade** (`sinistro_ocorrido / premio_ganho`), provisoes tecnicas, PL e margem, por seguradora aprovada, com a mediana dos pares |
+| `gold.seguros` | SES: premios (mes e acumulado no ano), sinistros, **sinistralidade** (`sinistro_ocorrido / premio_ganho`, em %), provisoes tecnicas, PL e margem, por seguradora aprovada, com a mediana dos pares (ver "Sinistralidade" abaixo) |
 
 Calculos que merecem atencao:
 
@@ -331,16 +331,29 @@ Calculos que merecem atencao:
 2. **PL por classe, sem subclasses**: usa a linha da classe (`id_subclasse` nulo); classes que no informe pos-RCVM 175 so tem linhas de
    subclasse usam a **soma das subclasses**; nunca classe + subclasses.
 3. **Tres visoes**: `administrado` (administrador no conjunto Safra), `gerido` (gestor no conjunto Safra) e `ambos` (uma ou outra, sem
-   contar duas vezes). O papel vem do cadastro novo (`registro_classe`); o legado (`cad_fi`) so vale para CNPJ ausentes dele.
+   contar duas vezes). O papel e conhecido para **CNPJ de fundo e de classe**: `registro_classe` > `registro_fundo` > legado (`cad_fi`);
+   a fonte de menor prioridade so vale para CNPJ ausentes das anteriores.
 4. **Deduplicacao**: `pl_deduplicado = pl_bruto - posicoes_em_cotas_do_grupo`, onde as posicoes sao as aplicacoes em cotas de fundos
-   (`cnpj_fundo_classe_cota` preenchido, `vl_merc_pos_final`) do **CDA** em que detentor **e** fundo cotizado pertencem ao conjunto da
-   propria visao. Usa o CDA do mes (data de competencia = fim do mes, que pode diferir do ultimo dia util). `n_fundos_com_cda` mostra
-   quantos fundos da visao tem carteira no CDA do mes: **o CDA do mes mais recente costuma vir incompleto**, o que subestima as cotas do
-   grupo e superestima o PL deduplicado.
-5. **Conciliacao** (`gold.fundos_conciliacao`): cada item de `fundos_referencias` em `config\referencias.yaml` (valor em **mil de reais**,
-   como nas demonstracoes) e comparado com o PL deduplicado da `visao` indicada no mesmo mes; traz `diferenca` (gold - referencia),
-   `diferenca_pct` e as tres visoes. Item inicial: fundos administrados, Nota 9 das demonstracoes IFRS de 30/09/2026 = 179.612.195 mil.
-   Para mudar ou acrescentar uma referencia, edite o yaml e rode `safra-dados gold`.
+   (`CNPJ_FUNDO_CLASSE_COTA` preenchido, `vl_merc_pos_final`) do **CDA** em que detentor **e** fundo/classe cotizado pertencem ao
+   conjunto da propria visao. Usa o CDA do mes (competencia = fim do mes, que pode diferir do ultimo dia util). `n_fundos_com_cda` mostra
+   quantos fundos da visao tem carteira no CDA do mes.
+   - **Cotas confidenciais (a partir de ago/2026)**: o layout do CDA nao mudou (o ativo continua em `CNPJ_FUNDO_CLASSE_COTA`), mas a CVM
+     passou a publicar quase todas as posicoes em "Cotas de Fundos" no arquivo `CONFID`, **sem o CNPJ do ativo**. Elas nao tem como ser
+     cruzadas e por isso a dedutibilidade intragrupo deixa de ser observavel: `cotas_do_grupo` identificadas caem de ~R$ 125 bi (jul/2026)
+     para ~R$ 3 bi, enquanto `cotas_confidenciais_sem_cnpj` (posicoes em cotas dos detentores da visao sem CNPJ do ativo) vai de ~R$ 0,1 bi
+     para ~R$ 130-155 bi. `pl_deduplicado` so tira o que foi identificado (**teto** do PL deduplicado nesses meses) e
+     `pl_deduplicado_minimo = pl_deduplicado - cotas_confidenciais_sem_cnpj` e o **piso** (supoe todas as confidenciais intragrupo).
+     Ate jul/2026 as duas colunas coincidem (confidenciais ~0).
+5. **Decomposicao** (`gold.fundos_decomposicao`, PL bruto por papel): `so_administrado` (administrador Safra, gestor de fora do grupo =
+   administracao fiduciaria para terceiros), `so_gerido` e `administra_e_gere` (os dois papeis); a soma e a visao `ambos` bruta.
+6. **Conciliacao** (`gold.fundos_conciliacao`): `config\referencias.yaml` tem `referencias` (Nota 9 do IFRS, **em mil de reais**,
+   30/09/2026: `fundos_administrados` = 179.612.195 e `previdencia_consolidada` = 36.323.030) e `conciliacoes_fundos`
+   (soma de referencias x PL do gold). Duas linhas: **(a) `fundos_administrados`**: visao administrado deduplicada vs. fundos
+   administrados; **(b) `total`**: visao administrado deduplicada **+ PL das seguradoras/previdencia Safra aprovadas no SES** (`pl_margem.pl`
+   do mes) vs. fundos administrados + previdencia consolidada. Cada linha traz `valor_gold`, `diferenca`, `diferenca_pct`, o
+   cenario `valor_gold_minimo` (piso acima) com `diferenca_minimo_pct`, a variante informativa com **provisoes tecnicas** no lugar do PL
+   (`diferenca_com_provisoes`; as provisoes do Safra Vida e Previdencia, ~R$ 36,8 bi, sao da ordem da `previdencia_consolidada`),
+   as tres visoes e a decomposicao por papel. Para mudar valores ou acrescentar comparacoes, edite o yaml e rode `safra-dados gold`.
 
 ### Exportacao
 
@@ -390,6 +403,21 @@ Register-ScheduledTask -TaskName "safra-dados atualizar" -Action $acao -Trigger 
 Para testar na hora: `Start-ScheduledTask -TaskName "safra-dados atualizar"`; para remover:
 `Unregister-ScheduledTask -TaskName "safra-dados atualizar" -Confirm:$false`. `-StartWhenAvailable` roda a tarefa assim que o
 computador ligar se ele estava desligado as 07:10.
+
+### Sinistralidade (`gold.seguros`)
+
+`sinistralidade = 100 x sinistro_ocorrido / premio_ganho` (mes) e `sinistralidade_ano` (acumulado do ano), sobre `Ses_seguros`
+somando os ramos de cada empresa. Conferencia com os campos do SES (2026-01 a 2026-09, empresas aprovadas): `sinistro_retido`,
+`premio_retido` e `sinistro_direto` vem **zerados em todas as 73.951 linhas** do arquivo atual (layout antigo mantido vazio),
+entao a formula "sinistros retidos / premios ganhos" nao e calculavel com esses campos; o numerador publicado e `sinistro_ocorrido`
+(liquido de resseguro, como na definicao da SUSEP) e o denominador `premio_ganho`. Premios usam `premio_direto`.
+
+### Reclamacoes (`gold.reclamacoes`)
+
+`indice` e lido direto do ranking do BCB, sem recalcular. Conferencia (3T26): o indice publicado e
+`qtd_procedentes_extrapoladas / qtd_clientes_total x 1.000.000` (Bradesco 57,23; Itau 43,20; Safra 207,93 publicado vs 208,04
+recalculado, diferenca de arredondamento da base de clientes), por isso `indice_recalculado` fica como conferencia. A coluna
+`reclamacoes_por_100mil_clientes` do bloco 5, que usava as reclamacoes **respondidas** (e nao o indice do BCB), foi removida.
 
 ### Limitacoes (bloco 5)
 

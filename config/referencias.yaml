@@ -1,16 +1,32 @@
 # Valores de referencia externos usados pela camada gold (conciliacoes e rotulos).
 # Edite aqui; `safra-dados gold` recria as views com estes valores.
 
-# Conciliacao do PL de fundos (gold.fundos_conciliacao). Valores informados em MIL de reais
-# (como nas demonstracoes); a gold converte para reais.
-#   visao: administrado | gerido | ambos  (qual PL deduplicado do gold.fundos comparar)
-fundos_referencias:
-  - id: nota9_ifrs_2026_09
-    descricao: "Fundos administrados - Nota 9 das demonstracoes IFRS do Banco Safra"
+# Referencias da Nota 9 das demonstracoes IFRS do Banco Safra, em MIL de reais (como nas demonstracoes);
+# a gold converte para reais.
+referencias:
+  fundos_administrados:
     data_referencia: "2026-09-30"
     valor_mil_reais: 179612195
+    fonte: "Banco Safra, IFRS, Nota 9 (set 2026): fundos administrados"
+  previdencia_consolidada:
+    data_referencia: "2026-09-30"
+    valor_mil_reais: 36323030
+    fonte: "Banco Safra, IFRS, Nota 9 (set 2026): previdencia consolidada"
+
+# Conciliacoes (gold.fundos_conciliacao). `referencia`: ids acima, somados (mesma data_referencia).
+#   visao: administrado | gerido | ambos  -> qual PL deduplicado do gold.fundos entra
+#   inclui_previdencia_ses: soma o PL (SES, pl_margem) das seguradoras/previdencia Safra aprovadas do mes
+conciliacoes_fundos:
+  - id: fundos_administrados
+    descricao: "(a) PL deduplicado dos fundos administrados vs. fundos administrados da Nota 9"
+    referencia: [fundos_administrados]
     visao: administrado
-    fonte: "Banco Safra, demonstracoes contabeis consolidadas em IFRS, Nota 9 (set 2026)"
+    inclui_previdencia_ses: false
+  - id: total
+    descricao: "(b) fundos administrados + PL das seguradoras/previdencia Safra (SES) vs. total da Nota 9"
+    referencia: [fundos_administrados, previdencia_consolidada]
+    visao: administrado
+    inclui_previdencia_ses: true
 
 # O ranking de reclamacoes do BCB traz os conglomerados SEM CNPJ ("SAFRA (conglomerado)").
 # Como a regra do projeto e nunca marcar por nome na silver, o rotulo grupo/entidade dessas linhas
