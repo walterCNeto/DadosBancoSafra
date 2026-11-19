@@ -16,6 +16,7 @@ from safra_dados.app_core import (  # noqa: F401  (reexportados para as paginas)
     colunas_da_relacao, criar_conexao_memoria, fmt_bi, fmt_int, fmt_num, fmt_pct, formatar_df, reais_para_bi,
 )
 from safra_dados.config import Settings, load_settings
+from safra_dados.snapshot import carregar_snapshot, url_do_snapshot
 
 TTL = 3600
 COR_SAFRA = "#0B3C5D"
@@ -32,10 +33,51 @@ def settings() -> Settings:
     return load_settings()
 
 
-@st.cache_resource(show_spinner="Montando as views em memória (a primeira carga leva ~30 s)...")
+def modo_nuvem() -> bool:
+    """Modo nuvem (Streamlit Community Cloud): sem `data/silver` o app baixa o snapshot publicado na release."""
+    return not settings().silver_dir.is_dir()
+
+
+@st.cache_resource(show_spinner="Carregando os dados (a primeira carga leva ~30 s)...")
+def _carga():
+    """(conexao DuckDB em memoria, ResultadoGold, manifest do snapshot | None). Uma unica vez por processo."""
+    if modo_nuvem():
+        return carregar_snapshot(url_do_snapshot(st.secrets))
+    con, res = criar_conexao_memoria(settings())
+    return con, res, None
+
+
 def conexao():
-    """(conexao DuckDB em memoria, ResultadoGold). Uma unica vez por processo; `recarregar()` a refaz."""
-    return criar_conexao_memoria(settings())
+    """(conexao DuckDB em memoria, ResultadoGold). Local: views sobre data/silver; nuvem: views sobre o snapshot."""
+    try:
+        con, res, _ = _carga()
+    except Exception as exc:  # download/validacao do snapshot falhou
+        st.error(f"Não foi possível carregar os dados: {exc}")
+        st.stop()
+    return con, res
+
+
+def snapshot_info() -> dict[str, Any] | None:
+    """Manifest do snapshot (modo nuvem) ou None (modo local)."""
+    conexao()
+    return _carga()[2]
+
+
+def legenda_snapshot() -> str | None:
+    m = snapshot_info()
+    if m is None:
+        return None
+    ger = pd.Timestamp(m["gerado_em"]).strftime("%d/%m/%Y %H:%M UTC")
+    return f"Snapshot dos dados gerado em {ger} (publicado na release `dados-latest`; o app não coleta nada)."
+
+
+def data_bases_fontes(fontes: list[str]) -> dict[str, str | None]:
+    """Ultima data-base ok por fonte: checkpoints locais ou, na nuvem, o manifest do snapshot."""
+    m = snapshot_info()
+    if m is not None:
+        return {f: m.get("data_base_fontes", {}).get(f) for f in fontes}
+    from safra_dados.manifest import load_checkpoint
+    return {f: load_checkpoint(settings().checkpoint_path(f), f).ultima_data_base_ok for f in fontes}
 
 
 @st.cache_data(ttl=TTL, show_spinner=False)
@@ -68,7 +110,7 @@ def _entidades_do_grupo(grupo: str) -> list[str]:
 def sidebar(filtros: bool = True) -> None:
     with st.sidebar:
         st.markdown("### Safra • dados públicos")
-        if st.button("Recarregar dados", help="Limpa os caches e refaz as views em memória (use após a atualização das 07:10)."):
+        if st.button("Recarregar dados", help=("Baixa o snapshot de novo e limpa os caches." if modo_nuvem() else "Limpa os caches e refaz as views em memória (use após a atualização das 07:10).")):
             recarregar()
             st.rerun()
         if not filtros:

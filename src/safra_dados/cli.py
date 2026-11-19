@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import sys
 from collections import defaultdict
 from datetime import date, datetime
@@ -32,6 +33,9 @@ from .gold import VIEWS_EXPORTAVEIS, _bi, _pct, conciliacao_fundos, conectar_gol
 from .importacao_manual import FONTE_RI, TIPOS_VALIDOS, importar_manual
 from .reprocessar import reprocessar_fonte
 from .resolver import resolver_entidades
+from . import snapshot as snap
+
+ULTIMA_ATUALIZACAO = "ultima_atualizacao.json"
 
 app = typer.Typer(help="Coleta de dados publicos (BCB, CVM, SUSEP) sobre o grupo Banco Safra e pares.")
 
@@ -339,10 +343,12 @@ def atualizar(
             if dry_run:
                 typer.echo(f"dry-run: {len(vencidas)} fonte(s) seriam atualizadas.")
                 return
+            atualizadas: list[str] = []
             for fonte, checkpoint in vencidas:
                 desde = desde_para_atualizar(fonte, checkpoint, settings.fonte_config(fonte).get("desde", "2015-03"))
                 try:
                     falhas += _ingest_fonte(settings, fonte, desde, None)
+                    atualizadas.append(fonte)
                 except Exception as exc:  # uma fonte com problema nao derruba as demais nem a gold
                     typer.echo(f"[{fonte}] FALHOU: {exc}", err=True)
                     falhas.append(f"[{fonte}] {exc}")
@@ -355,8 +361,57 @@ def atualizar(
                     typer.echo(f"gold FALHOU: {exc}", err=True)
                     falhas.append(f"gold: {exc}")
             typer.echo(f"fim: {len(vencidas)} fonte(s) atualizadas, {len(falhas)} falha(s).")
+            # marcador lido por atualizar.ps1 para decidir se gera/publica o snapshot
+            (settings.logs_dir / ULTIMA_ATUALIZACAO).write_text(json.dumps(
+                {"em": datetime.now().isoformat(timespec="seconds"), "fontes_atualizadas": atualizadas,
+                 "n_atualizadas": len(atualizadas), "n_falhas": len(falhas)}, ensure_ascii=False), encoding="utf-8")
     if falhas:
         raise typer.Exit(code=1)
+
+
+@app.command("snapshot")
+def snapshot_cmd(
+    excluir: str = typer.Option("", "--excluir", help="outras relacoes silver a omitir, separadas por virgula"),
+    completo: bool = typer.Option(False, "--completo", help=f"inclui tambem {', '.join(snap.SILVER_BRUTA_FUNDOS)} (~740 MB)"),
+) -> None:
+    """Gera data/snapshot/: gold materializada, silver filtrada (safra/pares) e manifest_snapshot.json (parquet zstd).
+    Por padrao omite a silver bruta de fundos (cda, informe): a gold de fundos ja vai materializada e o Explorador,
+    unico consumidor de silver, fica desabilitado na nuvem."""
+    settings = load_settings()
+    typer.echo("gerando snapshot (materializa as views de fundos; pode levar alguns minutos)...")
+    omitir = tuple(x.strip() for x in excluir.split(",") if x.strip()) + (() if completo else snap.SILVER_BRUTA_FUNDOS)
+    r = snap.gerar_snapshot(settings, excluir=omitir)
+    typer.echo(f"snapshot em {r.pasta}: {len(r.arquivos)} arquivos, {r.total_bytes / 1e6:,.1f} MB (gerado em {r.manifest['gerado_em']})")
+    for a in r.maiores(8):
+        typer.echo(f"  {a['bytes'] / 1e6:10,.1f} MB  {a['linhas']:>12,} linhas  {a['caminho']}")
+    if r.acima_do_limite:
+        typer.echo(f"AVISO: total acima de {snap.AVISO_TOTAL_BYTES // 1024 // 1024} MB; maiores arquivos:", err=True)
+        for a in r.maiores(5):
+            typer.echo(f"  {a['bytes'] / 1e6:10,.1f} MB  {a['caminho']}", err=True)
+    if r.manifest["erros_gold"]:
+        typer.echo(f"views gold com erro: {r.manifest['erros_gold']}", err=True)
+
+
+@app.command("publicar-snapshot")
+def publicar_snapshot_cmd(
+    repo: str = typer.Option(snap.REPO, "--repo", help="repositorio GitHub (dono/nome)"),
+    tag: str = typer.Option(snap.TAG_RELEASE, "--tag", help="tag da release que guarda o asset"),
+) -> None:
+    """Compacta data/snapshot/ em snapshot.zip e publica como asset da release (gh release; exige `gh auth login`)."""
+    settings = load_settings()
+    pasta = settings.data_root / "snapshot"
+    try:
+        snap.validar_snapshot(pasta)
+    except snap.SnapshotInvalido as exc:
+        raise typer.BadParameter(f"snapshot ausente ou invalido ({exc}); rode `safra-dados snapshot`") from exc
+    zip_path = snap.compactar_snapshot(pasta)
+    typer.echo(f"{zip_path}: {zip_path.stat().st_size / 1e6:,.1f} MB; enviando para {repo}@{tag}...")
+    try:
+        url = snap.publicar_zip(zip_path, repo, tag)
+    except RuntimeError as exc:
+        typer.echo(f"ERRO: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"publicado: {url}")
 
 
 @app.command("app")

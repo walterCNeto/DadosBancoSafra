@@ -15,10 +15,15 @@ from safra_dados.manifest import read_entries, ultimas_por_url  # noqa: E402
 
 com.cabecalho("Fontes e status", "Checkpoint de cada fonte e calendário de publicação (mesma regra do `safra-dados atualizar`).")
 st_ = com.settings()
+snapshot = com.snapshot_info()  # None no modo local
+if snapshot is not None:
+    st.info(com.legenda_snapshot() + " A tabela abaixo reflete o estado das fontes nessa data (não há bronze/checkpoints na nuvem).")
 
 
 @st.cache_data(ttl=com.TTL, show_spinner=False)
 def _status() -> pd.DataFrame:
+    if snapshot is not None:
+        return pd.DataFrame(snapshot["fontes"])
     return pd.DataFrame(status_fontes(com.settings()))
 
 
@@ -38,7 +43,9 @@ st.subheader("Manifest de uma fonte")
 fonte = st.selectbox("Fonte", df["fonte"].tolist())
 raiz = st_.bronze_fonte_dir(fonte)
 bases = sorted(p.name for p in raiz.iterdir() if p.is_dir()) if raiz.is_dir() else []
-if not bases:
+if snapshot is not None:
+    st.info("Manifest por arquivo indisponível no modo nuvem (o bronze não é publicado).")
+elif not bases:
     st.info("Sem bronze para esta fonte.")
 else:
     base = st.selectbox("Data-base", bases[::-1])

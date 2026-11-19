@@ -460,3 +460,32 @@ recalculado, diferenca de arredondamento da base de clientes), por isso `indice_
   coleta sozinho; manualmente: `safra-dados ingest --fonte bcb.ifdata --desde 2026-09`, idem `bcb.cosif`, e `safra-dados gold`.
 - **Checkpoint**: um periodo cuja normalizacao nao gera nada (resposta vazia, periodo ainda nao publicado) **nao** e mais marcado como
   coletado no checkpoint; antes ele ficava "em dia" e o `atualizar` nao tentava de novo.
+
+## Bloco 7 - snapshot publicado e app no Streamlit Community Cloud
+
+O `data\` nunca vai para o git. O app em nuvem le um **snapshot** publicado como asset da release `dados-latest`
+(`https://github.com/walterCNeto/DadosBancoSafra/releases/download/dados-latest/snapshot.zip`; o repositorio precisa ser publico).
+
+```powershell
+safra-dados snapshot             # gera data\snapshot\ (parquet zstd + manifest_snapshot.json)
+safra-dados publicar-snapshot    # snapshot.zip -> release dados-latest (cria a release se faltar; --clobber no asset)
+```
+
+- **`snapshot`**: (a) todas as relacoes `gold.*` materializadas (inclui `fundos`, `fundos_decomposicao`, `fundos_conciliacao`
+  e as dimensoes); (b) silver com `grupo IN ('safra','pares')`; tabelas sem coluna `grupo` ou com ate 100.000 linhas
+  (cadastros, ramos, SGS...) vao completas; (c) `manifest_snapshot.json` com data de geracao, data-base de cada fonte,
+  status das fontes, e sha256/tamanho/linhas de cada arquivo. Avisa se o total passar de 100 MB e lista os maiores.
+  **Por padrao omite a silver bruta de fundos (`cda`, `informe`, ~740 MB)**: a gold de fundos ja vai pronta e o Explorador
+  (unico consumidor de silver) fica desabilitado na nuvem. `--completo` as inclui; `--excluir a,b` omite outras relacoes.
+- **`publicar-snapshot`** usa o GitHub CLI: instale (`winget install GitHub.cli`) e rode **`gh auth login` uma vez**
+  (escopo para escrever em releases do repositorio). Sem login o comando falha com mensagem clara.
+- **Modo nuvem do app**: se `data\silver` nao existir, `app\common.py` baixa o zip (URL em `SAFRA_SNAPSHOT_URL`, variavel de
+  ambiente ou `st.secrets`; aceita `file://`), extrai em diretorio temporario, confere o sha256 de cada arquivo pelo
+  manifest e registra as views sobre os parquets (nada e recalculado). A data de geracao aparece em *Visao geral* e
+  *Fontes e status*. O Explorador (que grava em `data\exports`) fica fora da navegacao; o download nas demais paginas
+  e so pelo navegador. Localmente nada muda.
+- **Deploy**: em share.streamlit.io, repositorio `walterCNeto/DadosBancoSafra`, branch `main`, entrypoint `app/app.py`,
+  Python 3.12 em *Advanced settings*. `requirements.txt` (`.[app]`) instala o pacote e o extra; `.streamlit\config.toml`
+  traz tema claro e desliga a coleta de estatisticas.
+- **`atualizar.ps1`**: depois de `safra-dados atualizar`, roda `snapshot` e `publicar-snapshot` **so se alguma fonte foi
+  atualizada** (`atualizar` grava `data\logs\ultima_atualizacao.json`); cada etapa e o codigo de saida vao para `data\logs\agendador.log`.

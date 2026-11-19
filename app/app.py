@@ -25,6 +25,8 @@ PAGINAS = [
     st.Page("pages/10_Fontes_e_status.py", title="Fontes e status", icon="🗂️"),
 ]
 SEM_FILTROS = {"Explorador", "Fontes e status"}
+if com.modo_nuvem():  # o Explorador grava arquivos grandes em data\exports; na nuvem o download e so pelo navegador
+    PAGINAS = [p for p in PAGINAS if p.title != "Explorador"]
 
 pagina = st.navigation(PAGINAS)
 com.sidebar(filtros=pagina.title not in SEM_FILTROS)

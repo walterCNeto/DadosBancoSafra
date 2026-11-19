@@ -14,6 +14,11 @@ from safra_dados.app_core import (  # noqa: E402
     total_paginas, validar_sql_somente_leitura,
 )
 
+if com.modo_nuvem():  # esta pagina grava em data/exports (downloads grandes); na nuvem fica desabilitada
+    st.title("Explorador")
+    st.info("Explorador indisponível na versão em nuvem (o download grande grava em disco). Use a versão local: `safra-dados app`.")
+    st.stop()
+
 com.cabecalho("Explorador", "Nada é carregado por inteiro: a página mostra uma fatia (LIMIT/OFFSET) e o DuckDB filtra e ordena. "
               f"Download direto até {LIMITE_DOWNLOAD:,} linhas".replace(",", ".") + "; acima disso o arquivo vai para data\\exports.")
 con, _ = com.conexao()

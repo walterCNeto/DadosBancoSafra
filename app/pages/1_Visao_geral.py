@@ -10,10 +10,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import common as com  # noqa: E402
 
 from safra_dados.calendario import CALENDARIOS  # noqa: E402
-from safra_dados.manifest import load_checkpoint  # noqa: E402
 
 com.cabecalho("Visão geral", "Último período do Safra vs. mediana dos pares (cada indicador no seu último período disponível). "
               "Desta página, só o fim do intervalo de período da barra lateral é usado.")
+if (legenda := com.legenda_snapshot()):
+    st.info(legenda)
 fim = com.filtros()["fim"]
 
 
@@ -87,10 +88,7 @@ cartao(k[2], "Índice de reclamações (por milhão de clientes)", v(rc, "indice
        v(rc, "data_base"))
 
 st.subheader("Data-base de cada fonte")
-linhas = []
-for fonte in CALENDARIOS:
-    cp = load_checkpoint(com.settings().checkpoint_path(fonte), fonte)
-    linhas.append({"fonte": fonte, "última data-base coletada": cp.ultima_data_base_ok})
+linhas = [{"fonte": f, "última data-base coletada": d} for f, d in com.data_bases_fontes(list(CALENDARIOS)).items()]
 st.dataframe(pd.DataFrame(linhas), hide_index=True, width="stretch")
 
 st.subheader("Último período de cada view gold")
