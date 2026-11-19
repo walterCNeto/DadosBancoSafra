@@ -1,146 +1,168 @@
-"""Utilitarios para casar linhas da silver com as entidades configuradas em
-config/entidades.yaml e config/entidades_resolvidas.yaml (usado para marcar a
-coluna is_safra nos conectores, e pelo resolvedor de entidades)."""
+"""Marcacao de linhas da silver com as entidades configuradas em
+config/entidades.yaml e config/entidades_resolvidas.yaml.
+
+Regra central: a coluna `grupo` ("safra", "pares" ou nulo) e `is_safra` sao
+marcadas EXCLUSIVAMENTE por identificadores (CNPJ raiz, CNPJ completo, codigo de
+conglomerado). Nome de instituicao nunca marca nada: a busca por nome vive so
+no `resolver-entidades`, que gera sugestoes para revisao humana.
+"""
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from typing import Any
 
 import polars as pl
 
 from .config import Settings, load_entidades, load_entidades_resolvidas
 
+# status do resolvedor cujos identificadores podem ser usados na marcacao
+STATUS_UTILIZAVEIS = {"confirmado", "resolvido"}
+
+_CAMPOS_ID_CONFIG = (
+    "cnpj_raiz", "cnpj", "codigo_conglomerado_prudencial", "codigo_conglomerado_financeiro",
+)
+_CAMPOS_ID_RESOLVIDA = (
+    "cnpj", "codigo_conglomerado_prudencial", "codigo_conglomerado_financeiro",
+)
+
 
 def normalizar_identificador(valor: str | None) -> str | None:
+    """Normaliza CNPJ/codigo de conglomerado. CNPJ completo (14 digitos, com
+    ou sem pontuacao) e reduzido a raiz de 8 digitos."""
     if not valor:
         return None
-    return re.sub(r"[^0-9A-Za-z]", "", str(valor)).upper() or None
+    limpo = re.sub(r"[^0-9A-Za-z]", "", str(valor)).upper()
+    if not limpo:
+        return None
+    if limpo.isdigit() and len(limpo) == 14:
+        return limpo[:8]
+    return limpo
 
 
 def normalizar_nome(valor: str | None) -> str:
+    """Maiusculas e sem acentos (uso restrito ao resolvedor)."""
     if not valor:
         return ""
-    sem_acento = (
-        valor.upper()
-        .replace("Á", "A").replace("À", "A").replace("Â", "A").replace("Ã", "A")
-        .replace("É", "E").replace("Ê", "E")
-        .replace("Í", "I")
-        .replace("Ó", "O").replace("Ô", "O").replace("Õ", "O")
-        .replace("Ú", "U")
-        .replace("Ç", "C")
-    )
-    return sem_acento
+    import unicodedata
+
+    decomposto = unicodedata.normalize("NFKD", valor.upper())
+    return "".join(c for c in decomposto if not unicodedata.combining(c))
 
 
-@dataclass
-class EntidadesSafra:
-    """Conjunto normalizado de identificadores (CNPJ raiz e codigos de
-    conglomerado) conhecidos para o grupo Safra, usado para marcar is_safra."""
+def _utilizavel(entidade: dict[str, Any]) -> bool:
+    """Entrada do arquivo resolvido que pode marcar linhas: status confirmado/
+    resolvido, ou aprovada manualmente (`aprovado: true`)."""
+    return entidade.get("status") in STATUS_UTILIZAVEIS or bool(entidade.get("aprovado"))
 
-    identificadores: set[str]
-    termos_nome: list[str]
 
-    def contem(self, *valores: str | None) -> bool:
+class MapaEntidades:
+    """identificador normalizado -> grupo ("safra" tem prioridade em conflito)."""
+
+    def __init__(self, por_identificador: dict[str, str] | None = None) -> None:
+        self.por_identificador: dict[str, str] = dict(por_identificador or {})
+
+    def adicionar(self, grupo: str, *valores: str | None) -> None:
         for valor in valores:
             ident = normalizar_identificador(valor)
-            if ident and ident in self.identificadores:
-                return True
-        return False
+            if not ident:
+                continue
+            atual = self.por_identificador.get(ident)
+            if atual is None or (grupo == "safra" and atual != "safra"):
+                self.por_identificador[ident] = grupo
 
-    def nome_corresponde(self, nome: str | None) -> bool:
-        nome_norm = normalizar_nome(nome)
-        return any(termo in nome_norm for termo in self.termos_nome)
+    @property
+    def identificadores(self) -> set[str]:
+        return set(self.por_identificador)
+
+    def grupo_de(self, *valores: str | None) -> str | None:
+        grupos = {
+            self.por_identificador[i]
+            for i in (normalizar_identificador(v) for v in valores)
+            if i and i in self.por_identificador
+        }
+        if "safra" in grupos:
+            return "safra"
+        return next(iter(sorted(grupos)), None)
+
+    def contem(self, *valores: str | None) -> bool:
+        return self.grupo_de(*valores) is not None
 
 
-def carregar_entidades_safra(settings: Settings, grupo: str = "safra") -> EntidadesSafra:
-    identificadores: set[str] = set()
-    termos_nome: list[str] = []
+def carregar_mapa_entidades(settings: Settings) -> MapaEntidades:
+    """Constroi o mapa identificador -> grupo a partir do YAML de configuracao
+    (identificadores informados a mao) e do arquivo gerado pelo resolvedor
+    (apenas entidades com status 'confirmado' ou 'resolvido', ou aprovadas
+    manualmente com `aprovado: true`; sugestoes por nome nunca entram)."""
+    mapa = MapaEntidades()
 
-    entidades_cfg = load_entidades(settings)
-    grupo_cfg = entidades_cfg.get("grupos", {}).get(grupo, {})
-    cnpj_raiz_grupo = grupo_cfg.get("cnpj_raiz")
-    if cnpj_raiz_grupo:
-        ident = normalizar_identificador(cnpj_raiz_grupo)
-        if ident:
-            identificadores.add(ident)
+    cfg = load_entidades(settings)
+    for grupo, grupo_cfg in (cfg.get("grupos") or {}).items():
+        mapa.adicionar(grupo, grupo_cfg.get("cnpj_raiz"))
+        for entidade in (grupo_cfg.get("entidades") or {}).values():
+            mapa.adicionar(grupo, *(entidade.get(c) for c in _CAMPOS_ID_CONFIG))
 
-    for entidade in grupo_cfg.get("entidades", {}).values():
-        for campo in ("cnpj_raiz", "codigo_conglomerado_prudencial_hint", "codigo_conglomerado_financeiro_hint"):
-            ident = normalizar_identificador(entidade.get(campo))
-            if ident:
-                identificadores.add(ident)
-        for termo in entidade.get("busca_nome", []):
-            termos_nome.append(normalizar_nome(termo))
-
-    resolvidas = load_entidades_resolvidas(settings)
-    if resolvidas:
-        grupo_resolvido = resolvidas.get("grupos", {}).get(grupo, {})
-        for entidade in grupo_resolvido.get("entidades", {}).values():
-            for campo in ("cnpj", "codigo_conglomerado_prudencial", "codigo_conglomerado_financeiro"):
-                ident = normalizar_identificador(entidade.get(campo))
-                if ident:
-                    identificadores.add(ident)
-            for cnpj in entidade.get("cnpjs_relacionados", []) or []:
-                ident = normalizar_identificador(cnpj)
-                if ident:
-                    identificadores.add(ident)
-
-    return EntidadesSafra(identificadores=identificadores, termos_nome=termos_nome)
+    resolvidas = load_entidades_resolvidas(settings) or {}
+    for grupo, grupo_res in (resolvidas.get("grupos") or {}).items():
+        for entidade in (grupo_res.get("entidades") or {}).values():
+            if not _utilizavel(entidade):
+                continue
+            mapa.adicionar(grupo, *(entidade.get(c) for c in _CAMPOS_ID_RESOLVIDA))
+            mapa.adicionar(grupo, *(entidade.get("cnpjs_relacionados") or []))
+    return mapa
 
 
 def codigos_busca_individualizado(settings: Settings, grupo: str = "safra") -> list[str]:
-    """Codigos (CNPJ raiz de 8 digitos ou codigo de conglomerado) conhecidos
-    para o grupo, usados para montar URLs do endpoint Cosif individualizado
-    quando o arquivo consolidado por segmento nao estiver disponivel (datas
-    anteriores a 2023, segundo observado durante o desenvolvimento)."""
+    """Codigos (CNPJ raiz ou codigo de conglomerado) do grupo, usados para montar
+    URLs do Cosif individualizado em datas-base anteriores a 2023-03."""
     codigos: set[str] = set()
-
-    entidades_cfg = load_entidades(settings)
-    grupo_cfg = entidades_cfg.get("grupos", {}).get(grupo, {})
+    cfg = load_entidades(settings)
+    grupo_cfg = (cfg.get("grupos") or {}).get(grupo, {})
     if grupo_cfg.get("cnpj_raiz"):
         codigos.add(str(grupo_cfg["cnpj_raiz"]))
-    for entidade in grupo_cfg.get("entidades", {}).values():
-        if entidade.get("cnpj_raiz"):
-            codigos.add(str(entidade["cnpj_raiz"]))
-        hint = entidade.get("codigo_conglomerado_prudencial_hint")
-        if hint:
-            codigos.add(str(hint))
+    for entidade in (grupo_cfg.get("entidades") or {}).values():
+        for campo in ("cnpj_raiz", "codigo_conglomerado_prudencial"):
+            if entidade.get(campo):
+                codigos.add(str(entidade[campo]))
 
-    resolvidas = load_entidades_resolvidas(settings)
-    if resolvidas:
-        grupo_resolvido = resolvidas.get("grupos", {}).get(grupo, {})
-        for entidade in grupo_resolvido.get("entidades", {}).values():
-            if entidade.get("cnpj"):
-                codigos.add(str(entidade["cnpj"])[:8])
-            if entidade.get("codigo_conglomerado_prudencial"):
-                codigos.add(str(entidade["codigo_conglomerado_prudencial"]))
-
+    resolvidas = load_entidades_resolvidas(settings) or {}
+    grupo_res = (resolvidas.get("grupos") or {}).get(grupo, {})
+    for entidade in (grupo_res.get("entidades") or {}).values():
+        if not _utilizavel(entidade):
+            continue
+        if entidade.get("cnpj"):
+            codigos.add(str(entidade["cnpj"])[:8])
+        if entidade.get("codigo_conglomerado_prudencial"):
+            codigos.add(str(entidade["codigo_conglomerado_prudencial"]))
     return sorted(codigos)
 
 
-def marcar_is_safra(
-    df: pl.DataFrame,
-    entidades: EntidadesSafra,
-    colunas_identificador: list[str],
-    coluna_nome: str | None = None,
+def marcar_grupos(
+    df: pl.DataFrame, mapa: MapaEntidades, colunas_identificador: list[str]
 ) -> pl.DataFrame:
-    """Adiciona a coluna booleana `is_safra`, comparando as colunas de
-    identificador (CNPJ/codigo de conglomerado) normalizadas e, opcionalmente,
-    o nome da instituicao contra os termos de busca configurados."""
+    """Adiciona `grupo` (String: "safra" | "pares" | nulo) e `is_safra` (Boolean),
+    comparando apenas as colunas de identificador normalizadas contra o mapa."""
+    existentes = [c for c in colunas_identificador if c in df.columns]
+    if not existentes or df.is_empty():
+        return df.with_columns(
+            pl.lit(None, dtype=pl.String).alias("grupo"),
+            pl.lit(False).alias("is_safra"),
+        )
 
-    def _linha_e_safra(valores: dict[str, Any]) -> bool:
-        ids = [valores.get(c) for c in colunas_identificador]
-        if entidades.contem(*ids):
-            return True
-        if coluna_nome and entidades.nome_corresponde(valores.get(coluna_nome)):
-            return True
-        return False
+    mapeamento = mapa.por_identificador
+    por_coluna = []
+    for coluna in existentes:
+        limpo = pl.col(coluna).cast(pl.String).str.replace_all(r"[^0-9A-Za-z]", "").str.to_uppercase()
+        # CNPJ completo (14 digitos) -> raiz de 8
+        raiz = pl.when(limpo.str.contains(r"^\d{14}$")).then(limpo.str.slice(0, 8)).otherwise(limpo)
+        ident = raiz.replace_strict(mapeamento, default=None, return_dtype=pl.String)
+        por_coluna.append(ident)
 
-    colunas_usadas = list(colunas_identificador) + ([coluna_nome] if coluna_nome else [])
-    is_safra = [
-        _linha_e_safra(dict(zip(colunas_usadas, valores)))
-        for valores in df.select(colunas_usadas).iter_rows()
-    ]
-    return df.with_columns(pl.Series("is_safra", is_safra, dtype=pl.Boolean))
+    grupo = (
+        pl.when(pl.any_horizontal(*[e == "safra" for e in por_coluna]))
+        .then(pl.lit("safra"))
+        .otherwise(pl.coalesce(*por_coluna))
+        .alias("grupo")
+    )
+    df = df.with_columns(grupo)
+    return df.with_columns((pl.col("grupo") == "safra").fill_null(False).alias("is_safra"))

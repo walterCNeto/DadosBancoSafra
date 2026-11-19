@@ -38,7 +38,7 @@ from pathlib import Path
 import polars as pl
 
 from ..config import Settings
-from ..entidades import carregar_entidades_safra, codigos_busca_individualizado, marcar_is_safra
+from ..entidades import carregar_mapa_entidades, codigos_busca_individualizado, marcar_grupos
 from ..http import DownloadError, SafraDadosClient, sha256_bytes
 from ..manifest import ManifestEntry, append_entry, already_collected, now_iso
 from .base import Connector, Recurso, decode_bytes, extract_single_csv, write_silver_parquet
@@ -277,12 +277,6 @@ class BcbCosifBalancetesConnector(Connector):
             return None
 
         df = pl.concat(frames, how="diagonal_relaxed")
-        entidades_safra = carregar_entidades_safra(self.settings)
-        df = marcar_is_safra(
-            df,
-            entidades_safra,
-            colunas_identificador=["cnpj", "cod_conglomerado"],
-            coluna_nome="nome",
-        )
+        df = marcar_grupos(df, carregar_mapa_entidades(self.settings), ["cnpj", "cod_conglomerado"])
         out_path = self.settings.silver_fonte_dir(NOME_FONTE) / f"{data_base}.parquet"
         return write_silver_parquet(df, out_path)

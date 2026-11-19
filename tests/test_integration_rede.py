@@ -30,3 +30,19 @@ def test_cosif_discover_ultimo_trimestre_real():
     recursos = connector.discover(desde, desde)
     assert recursos
     assert all(r.data_base == anomes for r in recursos)
+
+
+@pytest.mark.rede
+def test_ifdata_cadastro_e_valores_reais():
+    import json
+
+    from safra_dados.connectors.bcb_ifdata import url_cadastro, url_valores, latest_available_anomes as ult
+
+    settings = load_settings()
+    connector = BcbIfDataConnector(settings)
+    client = connector._get_client()
+    anomes = ult()
+    cad = client.get(url_cadastro(connector.base_url, anomes, top=5))
+    assert cad.status_code == 200 and cad.json()["value"]
+    val = client.get(url_valores(connector.base_url, anomes, 1, "1", top=5))
+    assert val.status_code == 200 and "Saldo" in json.dumps(val.json()["value"][0])

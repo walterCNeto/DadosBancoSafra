@@ -71,3 +71,13 @@ def test_checkpoint_sem_arquivo(tmp_path):
     checkpoint = load_checkpoint(tmp_path / "nao-existe.json", "bcb_cosif")
     assert checkpoint.ultima_data_base_ok is None
     assert checkpoint.data_bases == {}
+
+
+def test_ultimas_por_url_ignora_falha_ja_superada():
+    from safra_dados.manifest import ManifestEntry, ultimas_por_url
+
+    def e(url, status):
+        return ManifestEntry(url=url, data_base="202606", coletado_em="t", status=status)
+
+    saida = ultimas_por_url([e("a", "falha"), e("b", "falha"), e("a", "ok")])
+    assert {x.url: x.status for x in saida} == {"a": "ok", "b": "falha"}

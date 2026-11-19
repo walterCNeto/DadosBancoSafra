@@ -3,7 +3,7 @@
 Servico de coleta de dados **publicos** (BCB, CVM, SUSEP) sobre o conglomerado
 Banco Safra e, por configuracao, outras instituicoes (pares).
 
-Bloco 1 (este repositorio, no estado atual) cobre:
+Bloco 1 (+ correcoes do 1.1) cobre:
 
 - Esqueleto do pacote `safra_dados` e da CLI `safra-dados`.
 - Conector `bcb_ifdata` (Olinda IFDATA v1: `IfDataCadastro` e `IfDataValores`).
@@ -37,10 +37,27 @@ pip install -e ".[dev]"
   $env:SAFRA_DADOS_HOME = "D:\dados-safra"
   ```
 
-- `config\entidades.yaml`: grupo `safra` (CNPJ raiz `58160789`) com os campos
-  de seguradora, previdencia, asset, corretora e Banco Alfa a resolver.
-- `config\entidades_resolvidas.yaml` (gerado por `resolver-entidades`, nao
-  versionado como fonte de verdade — revise manualmente antes de confiar nele).
+- `config\entidades.yaml`: grupos `safra` (Banco Safra `58160789`, Banco J. Safra
+  `03017677`, conglomerado prudencial `C0080109`, mais seguradora/previdencia/
+  asset/corretora/Alfa a resolver) e `pares` (Itau Unibanco, Bradesco, Santander
+  Brasil, BTG Pactual, Banco do Brasil).
+- `config\entidades_resolvidas.yaml` (gerado por `resolver-entidades`; revise
+  antes de confiar nele).
+
+### Marcacao `grupo` / `is_safra` (somente por identificador)
+
+As tabelas silver ganham `grupo` (`safra`, `pares` ou nulo) e `is_safra`. A
+marcacao usa **apenas identificadores** (CNPJ raiz, CNPJ completo, codigo de
+conglomerado), nunca o nome. A busca por nome existe so no `resolver-entidades`:
+
+| status no resolvido | significado | marca linhas? |
+|---|---|---|
+| `confirmado` | identificador do YAML confirmado no IfDataCadastro; CNPJs do conglomerado coletados | sim |
+| `resolvido` | (so pares, `resolver_por_nome_lider: true`) nome casou com **uma unica** lider ativa | sim |
+| `sugestao` | entidade sem identificador; candidatos por nome para revisao humana | **nao**, ate copiar o CNPJ para `entidades.yaml` ou pôr `aprovado: true` |
+| `ambiguo` / `nao_encontrado` / `falha_api` | — | nao |
+
+No IFDATA a coluna de conta contabil chama-se `grupo_conta` (para nao colidir com `grupo`).
 
 Os dados ficam fora do controle de versao (`data\` esta no `.gitignore`):
 
@@ -79,16 +96,14 @@ pytest -m "not rede"
 Os testes marcados `@pytest.mark.rede` fazem chamadas reais aos servicos do
 BCB e sao pulados por padrao; para roda-los: `pytest -m rede`.
 
-## Notas e limitacoes conhecidas (bloco 1)
+## Notas e limitacoes conhecidas
 
-- Durante o desenvolvimento, os endpoints parametrizados do Olinda IFDATA
-  (`IfDataCadastro` e `IfDataValores`) estavam retornando HTTP 500 ("Erro
-  desconhecido") para qualquer parametro testado, enquanto `ListaDeRelatorio()`
-  funcionava normalmente — um indicio de instabilidade do lado do BCB, nao de
-  uso incorreto da API (a assinatura foi conferida contra o `$metadata` OData
-  e o `swagger-ui3`). O conector foi implementado conforme a especificacao
-  oficial; se o BCB estiver fora do ar, os recursos ficam marcados como
-  `falha` no manifest para nova tentativa.
+- **Olinda e as chaves da query**: o Olinda responde HTTP 500 se `@` e `$` nas
+  chaves da query vierem codificados (`%40`, `%24`), que e o que o httpx faz com
+  `params=`. Toda URL Olinda e montada por `safra_dados.olinda.olinda_url` (chaves
+  literais, valores com `quote(v, safe="'")`) e passada inteira ao httpx. Nunca use
+  `params=` com Olinda. Se a resposta vier truncada (`@odata.nextLink`), o conector
+  pagina com `$top/$skip`.
 - Os balancetes Cosif consolidados por segmento (Bancos, Conglomerados
   prudenciais) so existem, no formato atual, a partir da data-base 2023-03.
   Para datas anteriores, o conector usa o endpoint individualizado por

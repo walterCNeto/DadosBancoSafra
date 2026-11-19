@@ -1,39 +1,421 @@
-gerado_em: '2026-11-19T12:04:28+00:00'
+gerado_em: '2026-11-19T12:27:13+00:00'
 anomes_consultado: '202606'
 fonte: bcb_ifdata.IfDataCadastro
-status_consulta: falha_api
-erro_consulta: 'HTTP 500 em https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata/IfDataCadastro(AnoMes=@AnoMes):
-  ''/*{\n  "codigo" : 500,\n  "mensagem" : "Erro desconhecido"\n}*/'''
+status_consulta: ok
+erro_consulta: null
 grupos:
   safra:
     entidades:
       banco_safra:
-        status: falha_api
-        candidatos: []
-        erro: 'HTTP 500 em https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata/IfDataCadastro(AnoMes=@AnoMes):
-          ''/*{\n  "codigo" : 500,\n  "mensagem" : "Erro desconhecido"\n}*/'''
+        status: confirmado
+        candidatos:
+        - cod_inst: 03323840
+          nome_instituicao: BANCO ALFA S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '03017677'
+          nome_instituicao: BANCO J. SAFRA S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '58160789'
+          nome_instituicao: BANCO SAFRA S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '60770336'
+          nome_instituicao: BANCO ALFA DE INVESTIMENTO S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '46570800'
+          nome_instituicao: ALFA ARRENDAMENTO MERCANTIL S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '17167412'
+          nome_instituicao: FINANCEIRA ALFA S.A. - SOCIEDADE DE CRÉDITO, FINANCIAMENTO
+            E INVESTIMENTO
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '62063177'
+          nome_instituicao: SAFRA LEASING S.A. ARRENDAMENTO MERCANTIL
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '58330558'
+          nome_instituicao: SAFRA SOCIEDADE DE CREDITO DIRETO S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '45437547'
+          nome_instituicao: SAFRA SOCIEDADE DE CRÉDITO, FINANCIAMENTO E INVESTIMENTO
+            S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '62178421'
+          nome_instituicao: ALFA CORRETORA DE CAMBIO E VALORES MOBILIARIOS S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '65913436'
+          nome_instituicao: SAFRA ASSET CORRETORA DE TÍTULOS E VALORES MOBILIÁRIOS
+            S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: 01638542
+          nome_instituicao: SAFRA DISTRIBUIDORA DE TÍTULOS E VALORES MOBILIÁRIOS LTDA.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '32270608'
+          nome_instituicao: SAFRAPAY INSTITUICAO DE PAGAMENTO LTDA.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: null
+          cnpj_instituicao_lider: '58160789'
+          situacao: I
+        cnpj: '58160789'
+        codigo_conglomerado_prudencial: C0080109
+        codigo_conglomerado_financeiro: C0010083
+        cnpjs_relacionados:
+        - 01638542
+        - '03017677'
+        - 03323840
+        - '17167412'
+        - '32270608'
+        - '45437547'
+        - '46570800'
+        - '58160789'
+        - '58330558'
+        - '60770336'
+        - '62063177'
+        - '62178421'
+        - '65913436'
+      banco_j_safra:
+        status: confirmado
+        candidatos:
+        - cod_inst: 03323840
+          nome_instituicao: BANCO ALFA S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '03017677'
+          nome_instituicao: BANCO J. SAFRA S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '58160789'
+          nome_instituicao: BANCO SAFRA S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '60770336'
+          nome_instituicao: BANCO ALFA DE INVESTIMENTO S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '46570800'
+          nome_instituicao: ALFA ARRENDAMENTO MERCANTIL S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '17167412'
+          nome_instituicao: FINANCEIRA ALFA S.A. - SOCIEDADE DE CRÉDITO, FINANCIAMENTO
+            E INVESTIMENTO
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '62063177'
+          nome_instituicao: SAFRA LEASING S.A. ARRENDAMENTO MERCANTIL
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '58330558'
+          nome_instituicao: SAFRA SOCIEDADE DE CREDITO DIRETO S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '45437547'
+          nome_instituicao: SAFRA SOCIEDADE DE CRÉDITO, FINANCIAMENTO E INVESTIMENTO
+            S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '62178421'
+          nome_instituicao: ALFA CORRETORA DE CAMBIO E VALORES MOBILIARIOS S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '65913436'
+          nome_instituicao: SAFRA ASSET CORRETORA DE TÍTULOS E VALORES MOBILIÁRIOS
+            S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: 01638542
+          nome_instituicao: SAFRA DISTRIBUIDORA DE TÍTULOS E VALORES MOBILIÁRIOS LTDA.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '32270608'
+          nome_instituicao: SAFRAPAY INSTITUICAO DE PAGAMENTO LTDA.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: null
+          cnpj_instituicao_lider: '58160789'
+          situacao: I
+        cnpj: '03017677'
+        codigo_conglomerado_prudencial: C0080109
+        codigo_conglomerado_financeiro: C0010083
+        cnpjs_relacionados:
+        - 01638542
+        - '03017677'
+        - 03323840
+        - '17167412'
+        - '32270608'
+        - '45437547'
+        - '46570800'
+        - '58160789'
+        - '58330558'
+        - '60770336'
+        - '62063177'
+        - '62178421'
+        - '65913436'
       seguradora_safra:
-        status: falha_api
+        status: nao_encontrado
         candidatos: []
-        erro: 'HTTP 500 em https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata/IfDataCadastro(AnoMes=@AnoMes):
-          ''/*{\n  "codigo" : 500,\n  "mensagem" : "Erro desconhecido"\n}*/'''
       previdencia_safra:
-        status: falha_api
+        status: nao_encontrado
         candidatos: []
-        erro: 'HTTP 500 em https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata/IfDataCadastro(AnoMes=@AnoMes):
-          ''/*{\n  "codigo" : 500,\n  "mensagem" : "Erro desconhecido"\n}*/'''
       asset_safra:
-        status: falha_api
-        candidatos: []
-        erro: 'HTTP 500 em https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata/IfDataCadastro(AnoMes=@AnoMes):
-          ''/*{\n  "codigo" : 500,\n  "mensagem" : "Erro desconhecido"\n}*/'''
+        status: sugestao
+        candidatos:
+        - cod_inst: '65913436'
+          nome_instituicao: SAFRA ASSET CORRETORA DE TÍTULOS E VALORES MOBILIÁRIOS
+            S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '62180047'
+          nome_instituicao: SAFRA ASSET MANAGEMENT LTDA
+          codigo_conglomerado_prudencial: null
+          codigo_conglomerado_financeiro: null
+          cnpj_instituicao_lider: null
+          situacao: I
       corretora_safra:
-        status: falha_api
-        candidatos: []
-        erro: 'HTTP 500 em https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata/IfDataCadastro(AnoMes=@AnoMes):
-          ''/*{\n  "codigo" : 500,\n  "mensagem" : "Erro desconhecido"\n}*/'''
+        status: sugestao
+        candidatos:
+        - cod_inst: 07256659
+          nome_instituicao: J. SAFRA CORRETORA DE VALORES E CÂMBIO LTDA.
+          codigo_conglomerado_prudencial: null
+          codigo_conglomerado_financeiro: null
+          cnpj_instituicao_lider: null
+          situacao: I
+        - cod_inst: '60783503'
+          nome_instituicao: SAFRA CORRETORA DE VALORES E CÂMBIO LTDA.
+          codigo_conglomerado_prudencial: null
+          codigo_conglomerado_financeiro: null
+          cnpj_instituicao_lider: null
+          situacao: I
       banco_alfa:
-        status: falha_api
-        candidatos: []
-        erro: 'HTTP 500 em https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata/IfDataCadastro(AnoMes=@AnoMes):
-          ''/*{\n  "codigo" : 500,\n  "mensagem" : "Erro desconhecido"\n}*/'''
+        status: sugestao
+        candidatos:
+        - cod_inst: 03323840
+          nome_instituicao: BANCO ALFA S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '60770336'
+          nome_instituicao: BANCO ALFA DE INVESTIMENTO S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '60849822'
+          nome_instituicao: CREDI COOPERALFA COOPERATIVA DE CRÉDITO
+          codigo_conglomerado_prudencial: null
+          codigo_conglomerado_financeiro: null
+          cnpj_instituicao_lider: null
+          situacao: I
+        - cod_inst: '46570800'
+          nome_instituicao: ALFA ARRENDAMENTO MERCANTIL S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '17167412'
+          nome_instituicao: FINANCEIRA ALFA S.A. - SOCIEDADE DE CRÉDITO, FINANCIAMENTO
+            E INVESTIMENTO
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+        - cod_inst: '62178421'
+          nome_instituicao: ALFA CORRETORA DE CAMBIO E VALORES MOBILIARIOS S.A.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
+  pares:
+    entidades:
+      itau_unibanco:
+        status: resolvido
+        candidatos:
+        - cod_inst: '60872504'
+          nome_instituicao: ITAÚ UNIBANCO HOLDING S.A.
+          codigo_conglomerado_prudencial: C0080099
+          codigo_conglomerado_financeiro: C0010069
+          cnpj_instituicao_lider: '60872504'
+          situacao: A
+        cnpj: '60872504'
+        codigo_conglomerado_prudencial: C0080099
+        codigo_conglomerado_financeiro: C0010069
+        cnpjs_relacionados:
+        - '00000776'
+        - 01425787
+        - '02206577'
+        - 05076239
+        - 06881898
+        - '17192451'
+        - '31749596'
+        - '42421776'
+        - '46743943'
+        - '60394079'
+        - '60701190'
+        - '60872504'
+        - '61182408'
+        - '61190658'
+        - '61194353'
+        - '61384004'
+        - '62418140'
+        - '65654303'
+      bradesco:
+        status: resolvido
+        candidatos:
+        - cod_inst: '60746948'
+          nome_instituicao: BANCO BRADESCO S.A.
+          codigo_conglomerado_prudencial: C0080075
+          codigo_conglomerado_financeiro: C0010045
+          cnpj_instituicao_lider: '60746948'
+          situacao: A
+        cnpj: '60746948'
+        codigo_conglomerado_prudencial: C0080075
+        codigo_conglomerado_financeiro: C0010045
+        cnpjs_relacionados:
+        - '00066670'
+        - '01701201'
+        - 03384738
+        - 04184779
+        - '06271464'
+        - 07207996
+        - 07299480
+        - '15011719'
+        - '27098060'
+        - '33147315'
+        - '33254319'
+        - '40473435'
+        - '47509120'
+        - '52568821'
+        - '58229246'
+        - '60746948'
+        - '61855045'
+        - '74014747'
+        - '91884981'
+      santander_brasil:
+        status: resolvido
+        candidatos:
+        - cod_inst: '90400888'
+          nome_instituicao: BANCO SANTANDER (BRASIL) S.A.
+          codigo_conglomerado_prudencial: C0080185
+          codigo_conglomerado_financeiro: C0030379
+          cnpj_instituicao_lider: '90400888'
+          situacao: A
+        cnpj: '90400888'
+        codigo_conglomerado_prudencial: C0080185
+        codigo_conglomerado_financeiro: C0030379
+        cnpjs_relacionados:
+        - 03502968
+        - '07707650'
+        - '10440482'
+        - '10866788'
+        - '29162769'
+        - '30172491'
+        - '42054886'
+        - '47193149'
+        - '51014223'
+        - '55942312'
+        - '62307848'
+        - '90400888'
+      btg_pactual:
+        status: resolvido
+        candidatos:
+        - cod_inst: '30306294'
+          nome_instituicao: BANCO BTG PACTUAL S.A.
+          codigo_conglomerado_prudencial: C0080336
+          codigo_conglomerado_financeiro: C0049944
+          cnpj_instituicao_lider: '30306294'
+          situacao: A
+        cnpj: '30306294'
+        codigo_conglomerado_prudencial: C0080336
+        codigo_conglomerado_financeiro: C0049944
+        cnpjs_relacionados:
+        - 02682287
+        - '15124464'
+        - '17157777'
+        - '29650082'
+        - '30306294'
+        - '33222241'
+        - '34711571'
+        - '43815158'
+        - '59149941'
+        - '59281253'
+        - '59285411'
+        - '76543115'
+      banco_do_brasil:
+        status: resolvido
+        candidatos:
+        - cod_inst: '00000000'
+          nome_instituicao: BANCO DO BRASIL S.A.
+          codigo_conglomerado_prudencial: C0080329
+          codigo_conglomerado_financeiro: C0049906
+          cnpj_instituicao_lider: '00000000'
+          situacao: A
+        cnpj: '00000000'
+        codigo_conglomerado_prudencial: C0080329
+        codigo_conglomerado_financeiro: C0049906
+        cnpjs_relacionados:
+        - '00000000'
+        - '06043050'
+        - '24933830'
+        - '30822936'
+        - '31546476'
+        - '31591399'

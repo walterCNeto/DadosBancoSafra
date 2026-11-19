@@ -86,3 +86,66 @@ def write_silver_parquet(df: pl.DataFrame, path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     df.write_parquet(path)
     return path
+
+
+class HttpConnector(Connector):
+    """Conector que coleta recursos via HTTP (GET) e grava o corpo na bronze.
+
+    Implementa `fetch` uma unica vez: baixa (com paginacao Olinda se `paginar`),
+    calcula o sha256, so grava se o conteudo for novo e registra no manifest.
+    Subclasses implementam discover() e normalize()."""
+
+    paginar_olinda: bool = False
+
+    def __init__(self, settings: Settings, client: Any | None = None) -> None:
+        super().__init__(settings)
+        self._client = client
+
+    def _get_client(self):
+        from ..http import SafraDadosClient
+
+        if self._client is None:
+            self._client = SafraDadosClient(self.settings.http)
+        return self._client
+
+    def _baixar(self, recurso: Recurso) -> bytes:
+        """Devolve o corpo do recurso; levanta DownloadError/RuntimeError em falha."""
+        client = self._get_client()
+        if self.paginar_olinda:
+            from ..olinda import juntar_paginas
+
+            return juntar_paginas(client, recurso.url)
+        resposta = client.get(recurso.url)
+        if resposta.status_code != 200:
+            raise RuntimeError(f"HTTP {resposta.status_code}: {resposta.text[:300]}")
+        return resposta.content
+
+    def fetch(self, recurso: Recurso) -> None:
+        from ..http import DownloadError, sha256_bytes
+        from ..manifest import ManifestEntry, already_collected, append_entry, now_iso
+
+        manifest_path = self.settings.manifest_path(self.nome, recurso.data_base)
+        dest = self.settings.bronze_fonte_dir(self.nome, recurso.data_base) / recurso.nome_arquivo
+
+        def _registrar(**campos: Any) -> None:
+            append_entry(
+                manifest_path,
+                ManifestEntry(
+                    url=recurso.url, data_base=recurso.data_base, coletado_em=now_iso(),
+                    arquivo=str(dest), **campos,
+                ),
+            )
+
+        try:
+            content = self._baixar(recurso)
+        except (DownloadError, RuntimeError) as exc:
+            _registrar(status="falha", erro=str(exc))
+            return
+
+        sha256 = sha256_bytes(content)
+        if already_collected(manifest_path, sha256) and dest.is_file():
+            _registrar(status="ja_existe", sha256=sha256, bytes=len(content))
+            return
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(content)
+        _registrar(status="ok", sha256=sha256, bytes=len(content))

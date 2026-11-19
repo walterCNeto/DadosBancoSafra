@@ -1,7 +1,19 @@
-"""Resolvedor de entidades: busca no IfDataCadastro (BCB Olinda IFDATA) todos
-os CNPJs/codigos de conglomerado ligados a raiz configurada em
-config/entidades.yaml, e grava o resultado em config/entidades_resolvidas.yaml
-para revisao humana (nunca sobrescreve o arquivo de configuracao original)."""
+"""Resolvedor de entidades: consulta o IfDataCadastro (BCB Olinda IFDATA) e grava
+config/entidades_resolvidas.yaml para revisao humana (nunca altera
+config/entidades.yaml).
+
+Status por entidade:
+- confirmado:    ha identificador no YAML e ele existe no cadastro; os CNPJs do
+                 conglomerado sao coletados por identificador (CNPJ lider /
+                 codigo de conglomerado). Usado na marcacao.
+- resolvido:     (so com `resolver_por_nome_lider: true`) o nome casou com UMA
+                 unica instituicao lider de conglomerado ativa. Usado na marcacao.
+- ambiguo:       mais de uma lider casou; nada e marcado.
+- sugestao:      entidade sem identificador; candidatos por nome apenas para
+                 revisao humana. NUNCA usada na marcacao ate alguem copiar o
+                 identificador para entidades.yaml ou marcar `aprovado: true`.
+- nao_encontrado / falha_api.
+"""
 
 from __future__ import annotations
 
@@ -9,95 +21,149 @@ from typing import Any
 
 import yaml
 
-from .config import Settings, load_entidades
+from .config import Settings, load_entidades, load_entidades_resolvidas
 from .connectors.bcb_ifdata import BcbIfDataConnector, latest_available_anomes
-from .entidades import normalizar_nome
+from .entidades import normalizar_identificador, normalizar_nome
 from .http import DownloadError, SafraDadosClient
 from .manifest import now_iso
 
 
-def _buscar_cadastro(connector: BcbIfDataConnector, client: SafraDadosClient, anomes: str) -> tuple[list[dict], str | None]:
-    url = f"{connector.base_url}/IfDataCadastro(AnoMes=@AnoMes)"
-    try:
-        response = client.get(url, params={"@AnoMes": int(anomes), "$format": "json"})
-    except DownloadError as exc:
-        return [], str(exc)
-    if response.status_code != 200:
-        return [], f"HTTP {response.status_code}: {response.text[:300]}"
-    return response.json().get("value", []), None
+def _candidato(row: dict) -> dict[str, Any]:
+    return {
+        "cod_inst": row.get("CodInst"),
+        "nome_instituicao": row.get("NomeInstituicao"),
+        "codigo_conglomerado_prudencial": row.get("CodConglomeradoPrudencial") or None,
+        "codigo_conglomerado_financeiro": row.get("CodConglomeradoFinanceiro") or None,
+        "cnpj_instituicao_lider": row.get("CnpjInstituicaoLider") or None,
+        "situacao": row.get("Situacao"),
+    }
+
+
+def _e_lider_ativa(row: dict) -> bool:
+    return bool(row.get("CodInst")) and row.get("CodInst") == row.get("CnpjInstituicaoLider") and row.get("Situacao") == "A"
+
+
+def _membros(cadastro: list[dict], cnpj: str | None, cong_pru: str | None, cong_fin: str | None) -> list[dict]:
+    """Linhas do cadastro que pertencem ao conglomerado, sempre por identificador."""
+    membros = []
+    for row in cadastro:
+        if (
+            (cnpj and (row.get("CodInst") == cnpj or row.get("CnpjInstituicaoLider") == cnpj))
+            or (cong_pru and row.get("CodConglomeradoPrudencial") == cong_pru)
+            or (cong_fin and row.get("CodConglomeradoFinanceiro") == cong_fin)
+        ):
+            membros.append(row)
+    return membros
+
+
+def _preencher(entrada: dict[str, Any], membros: list[dict], principal: dict) -> None:
+    entrada["cnpj"] = principal.get("CodInst")
+    entrada["codigo_conglomerado_prudencial"] = principal.get("CodConglomeradoPrudencial") or None
+    entrada["codigo_conglomerado_financeiro"] = principal.get("CodConglomeradoFinanceiro") or None
+    entrada["cnpjs_relacionados"] = sorted(
+        {m["CodInst"] for m in membros if m.get("CodInst") and len(m["CodInst"]) == 8}
+    )
+
+
+def resolver_entidade(cfg: dict, cadastro: list[dict], erro_api: str | None) -> dict[str, Any]:
+    """Resolve uma entidade (pura: sem rede nem disco)."""
+    if erro_api:
+        return {"status": "falha_api", "candidatos": [], "erro": erro_api}
+
+    cnpj = normalizar_identificador(cfg.get("cnpj_raiz") or cfg.get("cnpj"))
+    cong_pru = normalizar_identificador(cfg.get("codigo_conglomerado_prudencial"))
+    cong_fin = normalizar_identificador(cfg.get("codigo_conglomerado_financeiro"))
+    termos = [t for t in (normalizar_nome(x) for x in cfg.get("busca_nome", [])) if t]
+
+    # 1) identificador conhecido -> confirmacao exata
+    if cnpj or cong_pru or cong_fin:
+        membros = _membros(cadastro, cnpj, cong_pru, cong_fin)
+        if not membros:
+            return {"status": "nao_encontrado", "candidatos": []}
+        principal = next((m for m in membros if cnpj and m.get("CodInst") == cnpj), membros[0])
+        entrada: dict[str, Any] = {"status": "confirmado", "candidatos": [_candidato(m) for m in membros]}
+        _preencher(entrada, membros, principal)
+        if cnpj:
+            entrada["cnpj"] = cnpj
+        return entrada
+
+    # 2) sem identificador: busca por nome
+    por_nome = [
+        row for row in cadastro
+        if any(t in normalizar_nome(row.get("NomeInstituicao")) for t in termos)
+    ]
+
+    if cfg.get("resolver_por_nome_lider"):
+        lideres = [r for r in por_nome if _e_lider_ativa(r)]
+        if len(lideres) == 1:
+            lider = lideres[0]
+            membros = _membros(
+                cadastro, lider["CodInst"],
+                normalizar_identificador(lider.get("CodConglomeradoPrudencial")),
+                normalizar_identificador(lider.get("CodConglomeradoFinanceiro")),
+            )
+            entrada = {"status": "resolvido", "candidatos": [_candidato(lider)]}
+            _preencher(entrada, membros, lider)
+            return entrada
+        return {
+            "status": "ambiguo" if lideres else "nao_encontrado",
+            "candidatos": [_candidato(r) for r in lideres],
+        }
+
+    return {
+        "status": "sugestao" if por_nome else "nao_encontrado",
+        "candidatos": [_candidato(r) for r in por_nome],
+    }
 
 
 def resolver_entidades(
-    settings: Settings, grupo: str = "safra", anomes: str | None = None
+    settings: Settings,
+    grupo: str | None = None,
+    anomes: str | None = None,
+    cadastro: list[dict] | None = None,
 ) -> dict[str, Any]:
+    """Resolve um grupo (ou todos, se `grupo` for None) e grava o YAML resolvido."""
     anomes = anomes or latest_available_anomes()
-    client = SafraDadosClient(settings.http)
-    try:
-        connector = BcbIfDataConnector(settings, client=client)
-        cadastro, erro_api = _buscar_cadastro(connector, client, anomes)
-    finally:
-        client.close()
+    erro_api: str | None = None
+    if cadastro is None:
+        client = SafraDadosClient(settings.http)
+        try:
+            connector = BcbIfDataConnector(settings, client=client)
+            cadastro = connector.buscar_cadastro(anomes)
+        except (DownloadError, RuntimeError) as exc:
+            cadastro, erro_api = [], str(exc)
+        finally:
+            client.close()
 
-    entidades_cfg = load_entidades(settings)
-    grupo_cfg = entidades_cfg.get("grupos", {}).get(grupo)
-    if grupo_cfg is None:
-        raise KeyError(f"grupo '{grupo}' nao encontrado em config/entidades.yaml")
+    grupos_cfg = load_entidades(settings).get("grupos", {})
+    if grupo is not None:
+        if grupo not in grupos_cfg:
+            raise KeyError(f"grupo '{grupo}' nao encontrado em config/entidades.yaml")
+        grupos_cfg = {grupo: grupos_cfg[grupo]}
 
-    resultado_entidades: dict[str, Any] = {}
-    for nome_entidade, entidade_cfg in grupo_cfg.get("entidades", {}).items():
-        termos = [normalizar_nome(t) for t in entidade_cfg.get("busca_nome", [])]
-        hint = entidade_cfg.get("codigo_conglomerado_prudencial_hint")
-
-        candidatos = []
-        for row in cadastro:
-            nome_norm = normalizar_nome(row.get("NomeInstituicao"))
-            casa_por_nome = any(t and t in nome_norm for t in termos)
-            casa_por_hint = hint and row.get("CodConglomeradoPrudencial") == hint
-            if casa_por_nome or casa_por_hint:
-                candidatos.append(
-                    {
-                        "cod_inst": row.get("CodInst"),
-                        "nome_instituicao": row.get("NomeInstituicao"),
-                        "codigo_conglomerado_prudencial": row.get("CodConglomeradoPrudencial") or None,
-                        "codigo_conglomerado_financeiro": row.get("CodConglomeradoFinanceiro") or None,
-                        "cnpj_instituicao_lider": row.get("CnpjInstituicaoLider") or None,
-                        "situacao": row.get("Situacao"),
-                    }
-                )
-
-        if erro_api:
-            status = "falha_api"
-        elif candidatos:
-            status = "encontrado"
-        else:
-            status = "nao_encontrado"
-
-        entrada: dict[str, Any] = {"status": status, "candidatos": candidatos}
-        if erro_api:
-            entrada["erro"] = erro_api
-        if candidatos:
-            principal = candidatos[0]
-            cod_inst = principal["cod_inst"] or ""
-            entrada["cnpj"] = cod_inst if len(cod_inst) == 8 else entidade_cfg.get("cnpj_raiz")
-            entrada["codigo_conglomerado_prudencial"] = principal["codigo_conglomerado_prudencial"]
-            entrada["codigo_conglomerado_financeiro"] = principal["codigo_conglomerado_financeiro"]
-            entrada["cnpjs_relacionados"] = sorted(
-                {c["cod_inst"] for c in candidatos if c["cod_inst"] and len(c["cod_inst"]) == 8}
-            )
-        resultado_entidades[nome_entidade] = entrada
+    anterior = (load_entidades_resolvidas(settings) or {}).get("grupos", {})
+    grupos_res: dict[str, Any] = {g: v for g, v in anterior.items() if g not in grupos_cfg}
+    for nome_grupo, grupo_cfg in grupos_cfg.items():
+        entidades_res: dict[str, Any] = {}
+        for nome, cfg in (grupo_cfg.get("entidades") or {}).items():
+            entrada = resolver_entidade(cfg or {}, cadastro, erro_api)
+            # aprovacao humana sobrevive a novas execucoes
+            if ((anterior.get(nome_grupo) or {}).get("entidades") or {}).get(nome, {}).get("aprovado"):
+                entrada["aprovado"] = True
+            entidades_res[nome] = entrada
+        grupos_res[nome_grupo] = {"entidades": entidades_res}
 
     resultado = {
         "gerado_em": now_iso(),
         "anomes_consultado": anomes,
         "fonte": "bcb_ifdata.IfDataCadastro",
-        "status_consulta": "ok" if not erro_api else "falha_api",
+        "status_consulta": "falha_api" if erro_api else "ok",
         "erro_consulta": erro_api,
-        "grupos": {grupo: {"entidades": resultado_entidades}},
+        "grupos": grupos_res,
     }
 
     out_path = settings.entidades_resolvidas_path()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8") as fh:
         yaml.safe_dump(resultado, fh, allow_unicode=True, sort_keys=False)
-
     return resultado

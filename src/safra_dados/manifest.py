@@ -54,6 +54,12 @@ def read_entries(manifest_path: Path) -> list[ManifestEntry]:
     return entries
 
 
+def ultimas_por_url(entries: list[ManifestEntry]) -> list[ManifestEntry]:
+    """Estado atual: so a ultima entrada de cada URL (falhas antigas ja
+    superadas por uma coleta bem-sucedida nao contam)."""
+    return list({e.url: e for e in entries}.values())
+
+
 def already_collected(manifest_path: Path, sha256: str) -> bool:
     """Verifica se um recurso com o mesmo sha256 ja foi coletado com sucesso."""
     if not sha256:

@@ -11,14 +11,15 @@ documentado tambem no swagger-ui3):
     ListaDeRelatorio()
         -> lista de relatorios disponiveis (numero e nome)
 
-Nota: durante o desenvolvimento deste conector, os dois endpoints parametrizados
-(IfDataCadastro e IfDataValores) estavam retornando HTTP 500 "Erro desconhecido"
-para qualquer AnoMes testado, enquanto ListaDeRelatorio() funcionava normalmente
-— indicio de instabilidade do lado do servidor do BCB, e nao de erro de uso da
-API (a assinatura foi confirmada contra o $metadata/swagger). O conector foi
-implementado conforme a especificacao oficial e tenta novamente (retry/backoff)
-via safra_dados.http; se o BCB continuar indisponivel, os recursos ficam
-registrados como "falha" no manifest para nova tentativa posterior.
+IMPORTANTE: o Olinda responde HTTP 500 se as chaves da query vierem codificadas
+(`%40AnoMes`, `%24format`). Todas as URLs sao montadas por
+safra_dados.olinda.olinda_url (chaves "@"/"$" literais) e passadas inteiras ao
+httpx, sem `params=`.
+
+A coluna de valor do IfDataValores e `Saldo` (Edm.Decimal, ver $metadata) e vai
+para `valor` na silver. No tipo de instituicao 1, `CodInst` e o codigo do
+conglomerado prudencial (ex.: C0080109), que nao existe como linha do cadastro;
+o nome e o CNPJ lider vem do membro lider do conglomerado.
 """
 
 from __future__ import annotations
@@ -30,10 +31,10 @@ from pathlib import Path
 import polars as pl
 
 from ..config import Settings
-from ..entidades import carregar_entidades_safra, marcar_is_safra
-from ..http import DownloadError, SafraDadosClient, sha256_bytes
-from ..manifest import ManifestEntry, append_entry, already_collected, now_iso
-from .base import Connector, Recurso, write_silver_parquet
+from ..entidades import carregar_mapa_entidades, marcar_grupos
+from ..http import DownloadError, SafraDadosClient
+from ..olinda import olinda_url
+from .base import HttpConnector, Recurso, write_silver_parquet
 
 NOME_FONTE = "bcb_ifdata"
 
@@ -108,37 +109,66 @@ def latest_available_anomes(today: date | None = None) -> str:
     return anomes_list[-1]
 
 
-class BcbIfDataConnector(Connector):
+
+
+def url_cadastro(base_url: str, anomes: str | int, **kw) -> str:
+    return olinda_url(base_url, "IfDataCadastro", {"AnoMes": int(anomes)}, **kw)
+
+
+def url_valores(base_url: str, anomes: str | int, tipo_inst: int, relatorio: str | int, **kw) -> str:
+    return olinda_url(
+        base_url,
+        "IfDataValores",
+        {"AnoMes": int(anomes), "TipoInstituicao": int(tipo_inst), "Relatorio": str(relatorio)},
+        **kw,
+    )
+
+
+def indexar_cadastro(linhas: list[dict]) -> dict[str, dict]:
+    """Indice por CodInst (CNPJ raiz) e tambem por codigo de conglomerado
+    (prudencial/financeiro), apontando para o membro lider. Chaves de
+    conglomerado comecam com 'C' e nao colidem com CNPJ."""
+    indice: dict[str, dict] = {row["CodInst"]: row for row in linhas}
+    for row in linhas:
+        lider = indice.get(row.get("CnpjInstituicaoLider") or "")
+        if lider is None:
+            continue
+        for campo in ("CodConglomeradoPrudencial", "CodConglomeradoFinanceiro"):
+            cod = row.get(campo)
+            if cod and cod not in indice:
+                indice[cod] = lider
+    return indice
+
+
+class BcbIfDataConnector(HttpConnector):
     nome = NOME_FONTE
+    paginar_olinda = True
 
     def __init__(self, settings: Settings, client: SafraDadosClient | None = None) -> None:
-        super().__init__(settings)
+        super().__init__(settings, client)
         self._cfg = settings.fonte_config(NOME_FONTE)
         self._base_url = self._cfg["base_url"]
         self._tipos_instituicao: list[int] = list(self._cfg.get("tipos_instituicao", [1]))
-        self._client = client
         self._relatorios_cache: list[dict] | None = None
 
     @property
     def base_url(self) -> str:
         return self._base_url
 
-    def _get_client(self) -> SafraDadosClient:
-        if self._client is None:
-            self._client = SafraDadosClient(self.settings.http)
-        return self._client
-
     def lista_relatorios(self) -> list[dict]:
         """GET ListaDeRelatorio() -> [{"NomeRelatorio":..., "NumeroRelatorio":...}, ...]."""
         if self._relatorios_cache is not None:
             return self._relatorios_cache
-        client = self._get_client()
-        url = f"{self._base_url}/ListaDeRelatorio()"
-        response = client.get(url, params={"$format": "json"})
+        response = self._get_client().get(olinda_url(self._base_url, "ListaDeRelatorio()"))
         if response.status_code != 200:
             raise DownloadError(f"ListaDeRelatorio() HTTP {response.status_code}: {response.text[:300]}")
         self._relatorios_cache = response.json()["value"]
         return self._relatorios_cache
+
+    def buscar_cadastro(self, anomes: str) -> list[dict]:
+        """Cadastro completo de uma data-base (usado pelo resolvedor)."""
+        recurso = Recurso(NOME_FONTE, anomes, url_cadastro(self._base_url, anomes), "cadastro.json")
+        return json.loads(self._baixar(recurso))["value"]
 
     # ---- interface Connector ----
 
@@ -148,12 +178,9 @@ class BcbIfDataConnector(Connector):
         for anomes in quarters_between(desde, ate):
             recursos.append(
                 Recurso(
-                    fonte=NOME_FONTE,
-                    data_base=anomes,
-                    url=f"{self._base_url}/IfDataCadastro(AnoMes=@AnoMes)",
-                    nome_arquivo="cadastro.json",
-                    params={"@AnoMes": int(anomes), "$format": "json"},
-                    extra={"tipo": "cadastro"},
+                    fonte=NOME_FONTE, data_base=anomes,
+                    url=url_cadastro(self._base_url, anomes),
+                    nome_arquivo="cadastro.json", extra={"tipo": "cadastro"},
                 )
             )
             for tipo_inst in self._tipos_instituicao:
@@ -161,16 +188,9 @@ class BcbIfDataConnector(Connector):
                     numero = relatorio["NumeroRelatorio"]
                     recursos.append(
                         Recurso(
-                            fonte=NOME_FONTE,
-                            data_base=anomes,
-                            url=f"{self._base_url}/IfDataValores(AnoMes=@AnoMes,TipoInstituicao=@TipoInstituicao,Relatorio=@Relatorio)",
+                            fonte=NOME_FONTE, data_base=anomes,
+                            url=url_valores(self._base_url, anomes, tipo_inst, numero),
                             nome_arquivo=f"valores_tipo{tipo_inst}_rel{numero}.json",
-                            params={
-                                "@AnoMes": int(anomes),
-                                "@TipoInstituicao": tipo_inst,
-                                "@Relatorio": f"'{numero}'",
-                                "$format": "json",
-                            },
                             extra={"tipo": "valores", "tipo_inst": tipo_inst, "relatorio": numero},
                         )
                     )
@@ -180,112 +200,51 @@ class BcbIfDataConnector(Connector):
         try:
             return self.lista_relatorios()
         except DownloadError:
-            # sem a lista de relatorios ainda e possivel descobrir o cadastro;
-            # os relatorios ficam vazios e o chamador deve tratar separadamente.
+            # sem a lista de relatorios ainda e possivel descobrir o cadastro
             return []
-
-    def fetch(self, recurso: Recurso) -> None:
-        client = self._get_client()
-        manifest_path = self.settings.manifest_path(NOME_FONTE, recurso.data_base)
-        bronze_dir = self.settings.bronze_fonte_dir(NOME_FONTE, recurso.data_base)
-        dest = bronze_dir / recurso.nome_arquivo
-
-        try:
-            response = client.get(recurso.url, params=recurso.params)
-        except DownloadError as exc:
-            append_entry(
-                manifest_path,
-                ManifestEntry(
-                    url=recurso.url, data_base=recurso.data_base, coletado_em=now_iso(),
-                    status="falha", arquivo=str(dest), erro=str(exc),
-                ),
-            )
-            return
-
-        if response.status_code != 200:
-            append_entry(
-                manifest_path,
-                ManifestEntry(
-                    url=recurso.url, data_base=recurso.data_base, coletado_em=now_iso(),
-                    status="falha", arquivo=str(dest),
-                    erro=f"HTTP {response.status_code}: {response.text[:300]}",
-                ),
-            )
-            return
-
-        content = response.content
-        sha256 = sha256_bytes(content)
-        if already_collected(manifest_path, sha256) and dest.is_file():
-            append_entry(
-                manifest_path,
-                ManifestEntry(
-                    url=recurso.url, data_base=recurso.data_base, coletado_em=now_iso(),
-                    status="ja_existe", sha256=sha256, bytes=len(content), arquivo=str(dest),
-                ),
-            )
-            return
-
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(content)
-        append_entry(
-            manifest_path,
-            ManifestEntry(
-                url=recurso.url, data_base=recurso.data_base, coletado_em=now_iso(),
-                status="ok", sha256=sha256, bytes=len(content), arquivo=str(dest),
-            ),
-        )
 
     def normalize(self, data_base: str) -> Path | None:
         bronze_dir = self.settings.bronze_fonte_dir(NOME_FONTE, data_base)
-        cadastro_path = bronze_dir / "cadastro.json"
         if not bronze_dir.is_dir():
             return None
 
-        cadastro_por_cod: dict[str, dict] = {}
+        cadastro_path = bronze_dir / "cadastro.json"
+        cadastro: dict[str, dict] = {}
         if cadastro_path.is_file():
-            cadastro_json = json.loads(cadastro_path.read_text(encoding="utf-8"))
-            for row in cadastro_json.get("value", []):
-                cadastro_por_cod[row["CodInst"]] = row
+            cadastro = indexar_cadastro(json.loads(cadastro_path.read_text(encoding="utf-8")).get("value", []))
 
         rows: list[dict] = []
         for valores_path in sorted(bronze_dir.glob("valores_*.json")):
             payload = json.loads(valores_path.read_text(encoding="utf-8"))
             for row in payload.get("value", []):
-                cod_inst = row["CodInst"]
-                cadastro = cadastro_por_cod.get(cod_inst, {})
+                cad = cadastro.get(row["CodInst"], {})
                 rows.append(
                     {
                         "data_base": row.get("AnoMes", data_base),
-                        "cod_inst": cod_inst,
+                        "cod_inst": row["CodInst"],
                         "tipo_inst": row["TipoInstituicao"],
                         "relatorio": row["NumeroRelatorio"],
                         "nome_relatorio": row.get("NomeRelatorio"),
-                        "grupo": row.get("Grupo"),
+                        "grupo_conta": row.get("Grupo"),
                         "conta": row.get("Conta"),
                         "nome_coluna": row.get("NomeColuna"),
+                        "descricao_coluna": row.get("DescricaoColuna"),
                         "valor": row.get("Saldo"),
-                        "nome_instituicao": cadastro.get("NomeInstituicao"),
-                        "cod_conglomerado_prudencial": cadastro.get("CodConglomeradoPrudencial"),
-                        "cod_conglomerado_financeiro": cadastro.get("CodConglomeradoFinanceiro"),
-                        "cnpj_instituicao_lider": cadastro.get("CnpjInstituicaoLider"),
+                        "nome_instituicao": cad.get("NomeInstituicao"),
+                        "cod_conglomerado_prudencial": cad.get("CodConglomeradoPrudencial"),
+                        "cod_conglomerado_financeiro": cad.get("CodConglomeradoFinanceiro"),
+                        "cnpj_instituicao_lider": cad.get("CnpjInstituicaoLider"),
                     }
                 )
 
         if not rows:
             return None
 
-        df = pl.DataFrame(rows)
-        entidades_safra = carregar_entidades_safra(self.settings)
-        df = marcar_is_safra(
+        df = pl.DataFrame(rows, infer_schema_length=None)
+        df = marcar_grupos(
             df,
-            entidades_safra,
-            colunas_identificador=[
-                "cod_inst",
-                "cod_conglomerado_prudencial",
-                "cod_conglomerado_financeiro",
-                "cnpj_instituicao_lider",
-            ],
-            coluna_nome="nome_instituicao",
+            carregar_mapa_entidades(self.settings),
+            ["cod_inst", "cod_conglomerado_prudencial", "cod_conglomerado_financeiro", "cnpj_instituicao_lider"],
         )
         out_path = self.settings.silver_fonte_dir(NOME_FONTE) / f"{data_base}.parquet"
         return write_silver_parquet(df, out_path)

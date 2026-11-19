@@ -13,7 +13,7 @@ from .connectors.bcb_cosif_balancetes import BcbCosifBalancetesConnector
 from .connectors.bcb_cosif_balancetes import NOME_FONTE as COSIF_FONTE
 from .connectors.bcb_ifdata import BcbIfDataConnector
 from .connectors.bcb_ifdata import NOME_FONTE as IFDATA_FONTE
-from .manifest import Checkpoint, load_checkpoint, read_entries, save_checkpoint
+from .manifest import Checkpoint, load_checkpoint, read_entries, save_checkpoint, ultimas_por_url
 from .resolver import resolver_entidades
 
 app = typer.Typer(help="Coleta de dados publicos (BCB, CVM, SUSEP) sobre o grupo Banco Safra e pares.")
@@ -65,7 +65,8 @@ def _ingest_fonte(settings: Settings, fonte: str, desde: str, ate: str | None) -
 
         manifest_path = settings.manifest_path(fonte, data_base)
         entradas = read_entries(manifest_path)
-        entradas_data_base = [e for e in entradas if e.data_base == data_base]
+        urls_atuais = {r.url for r in recursos_db}  # ignora entradas de URLs antigas/obsoletas
+        entradas_data_base = ultimas_por_url([e for e in entradas if e.url in urls_atuais])
         ok = sum(1 for e in entradas_data_base if e.status in ("ok", "ja_existe"))
         falha = sum(1 for e in entradas_data_base if e.status == "falha")
         checkpoint.marcar(data_base, arquivos_ok=ok, arquivos_falha=falha)
@@ -94,7 +95,7 @@ def ingest(
 
 @app.command("resolver-entidades")
 def resolver_entidades_cmd(
-    grupo: str = typer.Option("safra", "--grupo", help="Grupo definido em config/entidades.yaml"),
+    grupo: str = typer.Option(None, "--grupo", help="Grupo de config/entidades.yaml (padrao: todos)"),
     anomes: str = typer.Option(None, "--anomes", help="Data-base AAAAMM para consulta (padrao: ultima disponivel)"),
 ) -> None:
     """Busca no IfDataCadastro os CNPJs/codigos de conglomerado do grupo e grava
@@ -104,8 +105,14 @@ def resolver_entidades_cmd(
     typer.echo(f"status da consulta: {resultado['status_consulta']}")
     if resultado.get("erro_consulta"):
         typer.echo(f"erro: {resultado['erro_consulta']}")
-    for nome, entrada in resultado["grupos"][grupo]["entidades"].items():
-        typer.echo(f"  {nome}: {entrada['status']} (cnpj={entrada.get('cnpj')!r})")
+    for nome_grupo, dados in resultado["grupos"].items():
+        if grupo and nome_grupo != grupo:
+            continue
+        for nome, entrada in dados["entidades"].items():
+            typer.echo(
+                f"  [{nome_grupo}] {nome}: {entrada['status']} (cnpj={entrada.get('cnpj')!r}, "
+                f"cong_prudencial={entrada.get('codigo_conglomerado_prudencial')!r})"
+            )
     typer.echo(f"gravado em {settings.entidades_resolvidas_path()}")
 
 

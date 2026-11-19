@@ -1,10 +1,18 @@
 # Entidades de interesse para coleta e comparacao.
-# "cnpj" e "codigo_conglomerado" conhecidos previamente ficam preenchidos;
-# campos com valor null devem ser preenchidos por `safra-dados resolver-entidades`,
-# que grava o resultado revisado em config/entidades_resolvidas.yaml.
 #
-# "busca_nome" e uma lista de termos (case-insensitive, sem acento) usados pelo
-# resolvedor para casar o nome da instituicao no cadastro do IFDATA (IfDataCadastro).
+# REGRA: a marcacao nas tabelas silver (colunas `grupo` e `is_safra`) usa SOMENTE
+# identificadores (cnpj_raiz, cnpj, codigo_conglomerado_*), nunca o nome.
+#
+# "busca_nome" so e usado por `safra-dados resolver-entidades`:
+#   - entidades COM identificador conhecido sao confirmadas por ele no
+#     IfDataCadastro (status "confirmado") e ganham os CNPJs do conglomerado;
+#   - entidades SEM identificador geram apenas SUGESTOES por nome (status
+#     "sugestao") em config/entidades_resolvidas.yaml, para revisao humana: copie o
+#     cnpj_raiz correto para ca, ou marque `aprovado: true` na entrada resolvida;
+#   - `resolver_por_nome_lider: true` (so os pares) autoriza o resolvedor a
+#     preencher CNPJ/conglomerado quando o nome casa com UMA unica instituicao
+#     lider de conglomerado ativa (status "resolvido"); se houver mais de uma,
+#     fica "ambiguo" e nada e marcado.
 
 grupos:
   safra:
@@ -14,10 +22,12 @@ grupos:
       banco_safra:
         descricao: "Banco Safra S.A. (banco multiplo, lider do conglomerado)"
         cnpj_raiz: "58160789"
-        busca_nome: ["safra"]
-        # observado empiricamente nos balancetes Cosif de 2026-06; o resolvedor
-        # deve confirmar/atualizar via IfDataCadastro, este e apenas um indicio.
-        codigo_conglomerado_prudencial_hint: "C0080109"
+        codigo_conglomerado_prudencial: "C0080109"
+
+      banco_j_safra:
+        descricao: "Banco J. Safra S.A."
+        cnpj_raiz: "03017677"
+        codigo_conglomerado_prudencial: "C0080109"
 
       seguradora_safra:
         descricao: "Safra Seguros / seguradora do conglomerado"
@@ -44,6 +54,35 @@ grupos:
         cnpj_raiz: null
         busca_nome: ["alfa"]
 
-# outras instituicoes (pares) podem ser adicionadas aqui seguindo o mesmo formato,
-# e passarao a ser resolvidas e marcadas no silver junto com o grupo "safra".
-outras_instituicoes: []
+  pares:
+    descricao: "Pares para comparacao (grandes bancos)"
+    entidades:
+      itau_unibanco:
+        descricao: "Itau Unibanco"
+        cnpj_raiz: null
+        busca_nome: ["itau unibanco holding"]
+        resolver_por_nome_lider: true
+
+      bradesco:
+        descricao: "Bradesco"
+        cnpj_raiz: null
+        busca_nome: ["banco bradesco s.a."]
+        resolver_por_nome_lider: true
+
+      santander_brasil:
+        descricao: "Santander Brasil"
+        cnpj_raiz: null
+        busca_nome: ["banco santander (brasil) s.a."]
+        resolver_por_nome_lider: true
+
+      btg_pactual:
+        descricao: "BTG Pactual"
+        cnpj_raiz: null
+        busca_nome: ["banco btg pactual s.a."]
+        resolver_por_nome_lider: true
+
+      banco_do_brasil:
+        descricao: "Banco do Brasil"
+        cnpj_raiz: null
+        busca_nome: ["banco do brasil s.a."]
+        resolver_por_nome_lider: true
