@@ -120,6 +120,12 @@ safra-dados resolver-entidades          # agora tambem grava `susep.sugestoes` (
 safra-dados ingest --fonte susep.ses --desde 2020-01
 safra-dados ingest --fonte safra.ri --desde 2023-01
 
+# Bloco 4.1: refaz a silver a partir do bronze, sem rede, com as entidades aprovadas atuais
+safra-dados reprocessar --fonte susep.ses        # ou cvm.fundos_cad, cvm.fundos_informe, cvm.fundos_cda, ... | all
+# Bloco 4.1: arquivos de RI baixados pelo navegador (fonte bloqueada por robots) -> data\manual\safra_ri\
+safra-dados importar-manual --fonte safra_ri
+safra-dados importar-manual --fonte safra_ri --tipo demonstracoes_ifrs --data-base 2026-09   # arquivo sem correspondencia
+
 # status por fonte: ultima data-base, numero de arquivos, falhas
 safra-dados status
 ```
@@ -223,11 +229,11 @@ BCB e sao pulados por padrao; para roda-los: `pytest -m rede`.
   se alguem as adicionar a mao em `susep.sugestoes`.
 - **Universo das tabelas grandes**: FIPs com `grupo` (aprovados) **mais os candidatos** (sugestoes ainda
   `aprovado: false`). Candidatos ficam com `grupo` nulo e `grupo_sugerido` preenchido; assim, aprovar
-  uma sugestao so exige reprocessar a silver (`safra-dados ingest --fonte susep.ses`, ou `normalize`),
+  uma sugestao so exige reprocessar a silver (`safra-dados reprocessar --fonte susep.ses`, sem rede),
   e `grupo` passa a valer. Filtre por `grupo` (nao por `grupo_sugerido`) em analises.
 - Cuidado com sugestoes por nome: ex. `ITAU SEGUROS DE AUTO E RESIDENCIA` (FIP 03182) hoje pertence ao
   grupo Porto Seguro segundo o proprio SES (`cogrupo` 00051); revise antes de aprovar.
-- O zip e baixado inteiro a cada execucao (calcula o sha256; se igual, descarta e registra `ja_existe`).
+- **Incremental (bloco 4.1)**: a pagina e lida primeiro (mes de carga = data-base); se o manifest ja tem bronze `ok` para esse mes e o zip esta em disco, o zip **nao e baixado de novo** (registra `ja_existe`). O zip fica no bronze; para refazer so a silver use `safra-dados reprocessar --fonte susep.ses`.
 
 ### `safra.ri` (RI do Banco Safra)
 
@@ -249,3 +255,27 @@ BCB e sao pulados por padrao; para roda-los: `pytest -m rede`.
   `status`, `baixado`, `sha256`, `bytes`, `arquivo_local`, ...), `grupo = safra` por `cnpj_emissor` (58160789).
   `bronze\safra_ri\<AAAAMM>\catalogo.jsonl` guarda os metadados de todos os documentos vistos.
 - Sem parsing de PDF/xlsx.
+
+## Bloco 4.1 - aprovacoes SUSEP, SES incremental, reprocessar e importacao manual
+
+- **Aprovacoes SUSEP** (`config\entidades_resolvidas.yaml`, `aprovado: true`): grupo `safra` = FIP 01627 (Safra Seguros Gerais) e
+  09938 (Safra Vida e Previdencia); grupo `pares` = Itau 05321, 05096, 06912; Bradesco 05444, 06866, 05312, 23566; Santander 06564,
+  05070, 01589, 29319; BTG 02305, 02682; BB 06785, 04707, 20141, 06211. **Nao aprovados** (continuam candidatos, `grupo` nulo):
+  03182 (grupo Porto Seguro segundo o SES), 74934 (corretora de resseguros) e 37052 (resseguradora). Depois de mudar aprovacoes,
+  rode `safra-dados reprocessar` nas fontes afetadas.
+- **`safra-dados reprocessar --fonte <fonte>|all`**: chama o `normalize` de cada data-base que tem bronze, **sem nenhuma requisicao
+  de rede**, aplicando as entidades aprovadas atuais. Uma data-base com erro nao impede as demais (codigo de saida 1 no fim).
+  Para `all`, a ordem e a de `ingest` (`cvm.fundos_cad` antes de informe/CDA, que filtram pelo universo de fundos).
+- **`safra-dados importar-manual --fonte safra_ri`**: o site do Safra proibe `/data/` no robots.txt, onde ficam todos os PDFs/xlsx
+  de RI (o conector so cataloga; ver Bloco 4). Baixe os arquivos **pelo navegador** e coloque em `data\manual\safra_ri\`. O comando:
+  1. calcula o sha256 de cada arquivo (`.pdf .xlsx .xls .xlsm .csv .zip .docx`);
+  2. casa o arquivo com um item do catalogo (`bronze\safra_ri\*\catalogo.jsonl`) pelo **nome do arquivo** (sem extensao, acentos,
+     pontuacao nem sufixo `(1)` de download repetido), depois pelo **titulo**, depois por similaridade de nome >= 0,92;
+     empate entre itens = nao casa;
+  3. se nao casar, o arquivo fica `PENDENTE` (codigo de saida 1) e pede `--tipo` (`demonstracoes_ifrs`, `demonstracoes_brgaap`,
+     `demonstracoes_brgaap_resumo`, `pilar3_gir`, `relatorio_anual`, `outros`) e `--data-base AAAA-MM`; com as duas opcoes os arquivos sem
+     correspondencia viram itens novos (`url = manual://safra_ri/<AAAAMM>/<sha16>`);
+  4. copia para `bronze\safra_ri\<AAAAMM>\doc__<tipo>__<nome>`, grava no `manifest.jsonl` uma entrada com `status = importado_manual` e
+     sha256, atualiza o catalogo e regrava a silver (`baixado = true`, `status = importado_manual`).
+  E idempotente (mesmo sha256 = `ja_importado`) e **nunca acessa a rede nem `/data/` do site**; um `ingest --fonte safra.ri`
+  posterior nao sobrescreve um item importado manualmente.

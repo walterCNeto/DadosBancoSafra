@@ -39,7 +39,7 @@ import polars as pl
 
 from ..config import Settings, load_entidades_resolvidas
 from ..entidades import MapaEntidades, carregar_mapa_entidades, fips_susep
-from ..manifest import ManifestEntry, already_collected, append_entry, now_iso
+from ..manifest import ManifestEntry, already_collected, append_entry, now_iso, read_entries, ultimas_por_url
 from ..robots import RegrasRobots, carregar_robots
 from .base import HttpConnector, Recurso, decode_bytes, write_silver_parquet
 from .cvm_comum import combinar_grupos, expr_grupo, ler_csv_cvm, silver_tabela_path
@@ -281,6 +281,15 @@ class SusepSesConnector(HttpConnector):
         manifest_path = self.settings.manifest_path(self.nome, recurso.data_base)
         dest = self.settings.bronze_fonte_dir(self.nome, recurso.data_base) / recurso.nome_arquivo
         novo = dest.with_suffix(dest.suffix + ".novo")
+
+        # incremental: o mes de carga (data_base) veio da pagina; se ja ha bronze ok para ele, nao baixa
+        ja = ultimas_por_url([e for e in read_entries(manifest_path) if e.url == recurso.url or e.arquivo == str(dest)])
+        anterior = next((e for e in reversed(ja) if e.status in ("ok", "ja_existe") and e.sha256), None)
+        if anterior is not None and dest.is_file():
+            append_entry(manifest_path, ManifestEntry(
+                url=recurso.url, data_base=recurso.data_base, coletado_em=now_iso(), arquivo=str(dest),
+                status="ja_existe", sha256=anterior.sha256, bytes=anterior.bytes))
+            return
 
         def _registrar(**campos: Any) -> None:
             append_entry(manifest_path, ManifestEntry(

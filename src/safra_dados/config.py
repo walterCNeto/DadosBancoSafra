@@ -72,6 +72,10 @@ class Settings:
     def gold_db_path(self) -> Path:
         return self.gold_dir / "safra.duckdb"
 
+    @property
+    def manual_dir(self) -> Path:
+        return self.data_root / "manual"
+
     def bronze_fonte_dir(self, fonte: str, data_base: str | None = None) -> Path:
         base = self.bronze_dir / fonte
         return base / data_base if data_base else base

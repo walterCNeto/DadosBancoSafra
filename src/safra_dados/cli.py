@@ -24,6 +24,8 @@ from .connectors.cvm_ofertas import CvmOfertasConnector
 from .connectors.safra_ri import SafraRiConnector
 from .connectors.susep_ses import SusepSesConnector
 from .manifest import Checkpoint, load_checkpoint, read_entries, save_checkpoint, ultimas_por_url
+from .importacao_manual import FONTE_RI, TIPOS_VALIDOS, importar_manual
+from .reprocessar import reprocessar_fonte
 from .resolver import resolver_entidades
 
 app = typer.Typer(help="Coleta de dados publicos (BCB, CVM, SUSEP) sobre o grupo Banco Safra e pares.")
@@ -103,7 +105,7 @@ def _ingest_fonte(settings: Settings, fonte: str, desde: str, ate: str | None) -
         entradas = read_entries(manifest_path)
         urls_atuais = {r.url for r in recursos_db}  # ignora entradas de URLs antigas/obsoletas
         entradas_data_base = ultimas_por_url([e for e in entradas if e.url in urls_atuais])
-        ok = sum(1 for e in entradas_data_base if e.status in ("ok", "ja_existe"))
+        ok = sum(1 for e in entradas_data_base if e.status in ("ok", "ja_existe", "importado_manual"))
         falha = sum(1 for e in entradas_data_base if e.status == "falha")
         checkpoint.marcar(data_base, arquivos_ok=ok, arquivos_falha=falha)
 
@@ -178,6 +180,66 @@ def resolver_entidades_cmd(
                 if itens:
                     typer.echo(f"  [{nome_grupo}] {nome}: {len(itens)} empresa(s) SUSEP")
     typer.echo(f"gravado em {settings.entidades_resolvidas_path()}")
+
+
+@app.command()
+def reprocessar(
+    fonte: str = typer.Option(..., "--fonte", help="fonte (ex.: susep.ses, cvm.fundos_cda) ou all"),
+) -> None:
+    """Refaz a silver a partir do bronze existente, SEM rede, com as entidades aprovadas atuais."""
+    settings = load_settings()
+    erros = 0
+    for fonte_resolvida in _resolver_fontes(fonte):
+        connector = _build_connector(settings, fonte_resolvida)
+        resultados = reprocessar_fonte(settings, connector, fonte_resolvida)
+        if not resultados:
+            typer.echo(f"[{fonte_resolvida}] sem bronze para reprocessar.")
+        for r in resultados:
+            if r.erro:
+                erros += 1
+                typer.echo(f"[{fonte_resolvida}] {r.data_base}: FALHOU: {r.erro}", err=True)
+            elif r.silver:
+                typer.echo(f"[{fonte_resolvida}] {r.data_base}: silver regravada em {r.silver}")
+            else:
+                typer.echo(f"[{fonte_resolvida}] {r.data_base}: nada para normalizar")
+    if erros:
+        raise typer.Exit(code=1)
+
+
+@app.command("importar-manual")
+def importar_manual_cmd(
+    fonte: str = typer.Option(FONTE_RI, "--fonte", help="so safra_ri"),
+    tipo: str = typer.Option(None, "--tipo", help="para arquivos sem correspondencia: " + " | ".join(TIPOS_VALIDOS)),
+    data_base: str = typer.Option(None, "--data-base", help="para arquivos sem correspondencia: AAAA-MM"),
+) -> None:
+    """Importa para a bronze os arquivos baixados pelo navegador em data/manual/<fonte>/ (sem rede)."""
+    settings = load_settings()
+    nome = {"safra_ri": "safra_ri", "safra.ri": "safra_ri"}.get(fonte)
+    if nome is None:
+        raise typer.BadParameter("importacao manual so existe para safra_ri")
+    try:
+        resultados = importar_manual(settings, nome, tipo=tipo, data_base=data_base)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    pasta = settings.manual_dir / nome
+    if not resultados:
+        typer.echo(f"nenhum arquivo em {pasta}")
+        return
+    pendentes = 0
+    bases = set()
+    for r in resultados:
+        if r.estado == "pendente":
+            pendentes += 1
+            typer.echo(f"  PENDENTE {r.arquivo}: {r.detalhe}", err=True)
+        else:
+            bases.add(r.data_base)
+            typer.echo(f"  {r.estado} {r.arquivo} -> {r.data_base} [{r.tipo}] ({r.detalhe})")
+    connector = _build_connector(settings, nome)
+    for db in sorted(bases):
+        connector.normalize(db)
+        typer.echo(f"[{nome}] {db}: silver atualizada")
+    if pendentes:
+        raise typer.Exit(code=1)
 
 
 @app.command()

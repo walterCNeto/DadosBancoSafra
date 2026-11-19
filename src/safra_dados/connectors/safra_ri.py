@@ -334,6 +334,8 @@ class SafraRiConnector(HttpConnector):
                 return
             return super().fetch(recurso)
         # documento
+        if self._importado_manualmente(recurso):
+            return  # arquivo colocado pelo usuario em data/manual: nao sobrescrever com o catalogo bloqueado
         if not extra.get("robots_permitido", False):
             self._catalogar(recurso, status="bloqueado_robots", motivo=f"robots.txt ({self.robots.origem if self.robots else '?'}) proibe este caminho")
             self._registrar(recurso, "bloqueado_robots", "robots.txt proibe este caminho")
@@ -350,6 +352,10 @@ class SafraRiConnector(HttpConnector):
             recurso, status=(e.status if e else "falha"), sha256=(e.sha256 if e else ""), bytes=(e.bytes if e else 0),
             motivo=(e.erro if e else "sem entrada no manifest"),
         )
+
+    def _importado_manualmente(self, recurso: Recurso) -> bool:
+        entradas = [e for e in read_entries(self.settings.manifest_path(self.nome, recurso.data_base)) if e.url == recurso.url]
+        return bool(entradas) and entradas[-1].status == "importado_manual" and Path(entradas[-1].arquivo).is_file()
 
     def _salvar_pagina(self, recurso: Recurso, conteudo: bytes) -> None:
         from ..http import sha256_bytes
@@ -383,7 +389,7 @@ class SafraRiConnector(HttpConnector):
         linhas = []
         for it in itens:
             e = manifest.get(it["url"])
-            baixado = it.get("status") in ("ok", "ja_existe")
+            baixado = it.get("status") in ("ok", "ja_existe", "importado_manual")
             linhas.append({
                 "tipo": it["tipo"], "data_base": data_base, "titulo": it["titulo"], "url": it["url"],
                 "formato": it.get("formato"), "secao": it.get("secao"), "pagina_origem": it.get("pagina_origem"),

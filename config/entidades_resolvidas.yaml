@@ -1855,7 +1855,7 @@ susep:
         denominacao: SAFRA SEGUROS GERAIS S.A.
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       previdencia_safra:
       - codigo_fip: 09938
         cnpj: '30902142000105'
@@ -1863,7 +1863,7 @@ susep:
         denominacao: SAFRA VIDA E PREVIDÊNCIA S.A.
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       asset_safra: []
       dtvm_safra: []
       corretora_safra: []
@@ -1883,21 +1883,21 @@ susep:
         denominacao: ITAU SEGUROS S.A.
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       - codigo_fip: 06912
         cnpj: '29741030000130'
         cnpj_raiz: '29741030'
         denominacao: ITAUSEG SEGURADORA S.A.
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       - codigo_fip: 05096
         cnpj: '92661388000190'
         cnpj_raiz: '92661388'
         denominacao: ITAÚ VIDA E PREVIDÊNCIA S/A
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       bradesco:
       - codigo_fip: '05312'
         cnpj: '92682038000100'
@@ -1905,28 +1905,28 @@ susep:
         denominacao: BRADESCO AUTO/RE COMPANHIA DE SEGUROS
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       - codigo_fip: '23566'
         cnpj: '33010851000174'
         cnpj_raiz: '33010851'
         denominacao: BRADESCO CAPITALIZAÇÃO S.A.
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       - codigo_fip: '05444'
         cnpj: '33055146000193'
         cnpj_raiz: '33055146'
         denominacao: BRADESCO SEGUROS S.A
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       - codigo_fip: 06866
         cnpj: '51990695000137'
         cnpj_raiz: '51990695'
         denominacao: BRADESCO VIDA E PREVIDÊNCIA S.A.
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       santander_brasil:
       - codigo_fip: 01589
         cnpj: '30617319000121'
@@ -1934,28 +1934,28 @@ susep:
         denominacao: SANTANDER AUTO S.A.
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       - codigo_fip: '29319'
         cnpj: 03209092000102
         cnpj_raiz: 03209092
         denominacao: SANTANDER CAPITALIZAÇÃO S.A.
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       - codigo_fip: '05070'
         cnpj: '87376109000106'
         cnpj_raiz: '87376109'
         denominacao: ZURICH SANTANDER BRASIL SEGUROS E PREVIDÊNCIA S.A.
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       - codigo_fip: '06564'
         cnpj: 06136920000118
         cnpj_raiz: 06136920
         denominacao: ZURICH SANTANDER BRASIL SEGUROS S.A.
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       btg_pactual:
       - codigo_fip: '74934'
         cnpj: '22256195000178'
@@ -1970,7 +1970,7 @@ susep:
         denominacao: BTG PACTUAL SEGUROS S.A.
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       - codigo_fip: '37052'
         cnpj: '15421859000141'
         cnpj_raiz: '15421859'
@@ -1984,7 +1984,7 @@ susep:
         denominacao: BTG Pactual Vida e Previdência S.A.
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       banco_do_brasil:
       - codigo_fip: '06211'
         cnpj: 01378407000110
@@ -1992,25 +1992,25 @@ susep:
         denominacao: ALIANÇA DO BRASIL SEGUROS S.A.
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       - codigo_fip: '20141'
         cnpj: '15138043000105'
         cnpj_raiz: '15138043'
         denominacao: BRASILCAP CAPITALIZAÇÃO S.A.
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       - codigo_fip: '04707'
         cnpj: '27665207000131'
         cnpj_raiz: '27665207'
         denominacao: BRASILPREV SEGUROS E PREVIDÊNCIA S/A
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
       - codigo_fip: 06785
         cnpj: '28196889000143'
         cnpj_raiz: '28196889'
         denominacao: BRASILSEG COMPANHIA DE SEGUROS
         origem: nome
         no_mapa: false
-        aprovado: false
+        aprovado: true
