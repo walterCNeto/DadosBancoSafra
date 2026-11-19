@@ -11,7 +11,7 @@ Bloco 1 (+ correcoes do 1.1) cobre:
 - Camadas bronze (arquivo bruto + `manifest.jsonl`) e silver (parquet), com
   checkpoint incremental por fonte.
 
-CVM, SUSEP e a camada gold (`duckdb`) ficam para um bloco seguinte.
+O Bloco 2 (BCB complementar) acrescenta os conectores abaixo. CVM, SUSEP e a camada gold (`duckdb`) ficam para um bloco seguinte.
 
 ## Requisitos
 
@@ -68,6 +68,22 @@ data\
   gold\safra.duckdb        (bloco futuro)
 ```
 
+## Fontes
+
+| `--fonte` | Origem | Observacao |
+|---|---|---|
+| `bcb.ifdata` | Olinda IFDATA | trimestral |
+| `bcb.cosif` | CKAN `ifs-balancetes` | trimestral |
+| `bcb.juros` | Olinda `taxaJuros` v2 | ranking por instituicao/modalidade; mensal + ultima janela diaria de cada mes |
+| `bcb.tarifas` | Olinda `Informes_ListaTarifasPorInstituicaoFinanceira` | **instantaneo** (so tarifas vigentes); data-base = mes da coleta; apenas instituicoes de safra/pares |
+| `bcb.unicad` | Olinda `BcBase` v2 (`EntidadesSupervisionadas`) | `dataBase` em `MM-DD-AAAA` |
+| `bcb.reclamacoes` | REST `rdrweb/rest/ext/ranking` (**nao e Olinda**) | CSV por periodo; conglomerados vem sem CNPJ (ver limitacoes) |
+| `bcb.estban` | arquivos em `bcb.gov.br/content/estatisticas/estatistica_bancaria_estban` (**nem CKAN nem Olinda**) | formato longo (verbete/saldo), niveis municipio e agencia |
+| `bcb.sgs` | `api.bcb.gov.br` (**nao e Olinda**) | Selic meta 432, IPCA 433, dolar 1, CDI 12 |
+
+Todas as chamadas Olinda usam `olinda_url`. As tabelas silver de fontes por instituicao
+trazem `grupo`/`is_safra`.
+
 ## Uso da CLI
 
 ```powershell
@@ -75,6 +91,9 @@ data\
 safra-dados ingest --fonte bcb.ifdata --desde 2015-03
 safra-dados ingest --fonte bcb.cosif --desde 2015-03
 safra-dados ingest --fonte all --desde 2015-03
+# ultimo periodo de uma fonte do Bloco 2 (cada fonte tem seu proprio calendario)
+safra-dados ingest --fonte bcb.juros --desde 2026-10
+safra-dados ingest --fonte bcb.sgs --desde 2026-10
 
 # resolve os CNPJs/codigos de conglomerado do grupo Safra via IfDataCadastro
 safra-dados resolver-entidades
@@ -114,3 +133,10 @@ BCB e sao pulados por padrao; para roda-los: `pytest -m rede`.
 - O documento do conglomerado prudencial nos arquivos atuais e `4060` (nao
   `4040`); o conector nao assume um numero fixo, apenas registra o que vem na
   coluna `DOCUMENTO` de cada arquivo.
+- **Bloco 2 - limitacoes**: (a) o ranking de reclamacoes traz os conglomerados (ex.:
+  "SAFRA (conglomerado)") sem CNPJ, entao ficam com `grupo` nulo; so as linhas
+  "Banco/financeira" tem CNPJ. (b) Tarifas nao tem historico no servico. (c) `taxaJuros`
+  so publica as instituicoes que entram no ranking de cada modalidade. (d) O Estban de
+  um mes so aparece apos a publicacao; meses ausentes sao simplesmente ignorados no
+  `discover`. (e) SGS 404 "Value(s) not found" (mes corrente sem valor, ex.: IPCA) conta
+  como serie vazia, nao como falha.

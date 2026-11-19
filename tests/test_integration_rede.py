@@ -46,3 +46,82 @@ def test_ifdata_cadastro_e_valores_reais():
     assert cad.status_code == 200 and cad.json()["value"]
     val = client.get(url_valores(connector.base_url, anomes, 1, "1", top=5))
     assert val.status_code == 200 and "Saldo" in json.dumps(val.json()["value"][0])
+
+
+# ---------------- Bloco 2: um teste de rede por conector ----------------
+
+def _fetch_primeiro(connector, recursos):
+    assert recursos, "discover nao devolveu recursos"
+    resposta = connector._get_client().get(recursos[0].url)
+    assert resposta.status_code == 200, resposta.text[:200]
+    return resposta
+
+
+@pytest.mark.rede
+def test_juros_real():
+    from safra_dados.connectors.bcb_taxas_juros import BcbTaxasJurosConnector
+    from safra_dados.periodos import mes_anterior
+
+    c = BcbTaxasJurosConnector(load_settings())
+    m = mes_anterior()
+    recursos = c.discover(f"{m[:4]}-{m[4:]}", None)
+    assert _fetch_primeiro(c, recursos).json()["value"]
+
+
+@pytest.mark.rede
+def test_tarifas_real():
+    from safra_dados.connectors.bcb_tarifas import BcbTarifasConnector
+
+    s = load_settings()
+    c = BcbTarifasConnector(s)
+    base = s.fonte_config("bcb_tarifas")["base_url"]
+    r = c._get_client().get(c.url_instituicoes())
+    assert r.status_code == 200 and r.json()["value"]
+    r = c._get_client().get(c.url_tarifas("F", "58160789"))
+    assert r.status_code == 200 and r.json()["value"] and base
+
+
+@pytest.mark.rede
+def test_unicad_real():
+    from safra_dados.connectors.bcb_unicad import BcbUnicadConnector
+    from safra_dados.periodos import mes_anterior
+
+    c = BcbUnicadConnector(load_settings())
+    m = mes_anterior()
+    linhas = _fetch_primeiro(c, c.discover(f"{m[:4]}-{m[4:]}", None)).json()["value"]
+    assert any(r["codigoCNPJ8"] == "58160789" for r in linhas)
+
+
+@pytest.mark.rede
+def test_reclamacoes_real():
+    from safra_dados.connectors.bcb_reclamacoes import BcbReclamacoesConnector, parse_ranking_csv
+    from safra_dados.connectors.base import decode_bytes
+
+    c = BcbReclamacoesConnector(load_settings())
+    recursos = c.discover("2025-01", None)
+    resposta = c._get_client().get(recursos[-1].url)
+    assert resposta.status_code == 200
+    df = parse_ranking_csv(decode_bytes(resposta.content, ("utf-8-sig", "cp1252")))
+    assert df.height > 50 and "indice" in df.columns
+
+
+@pytest.mark.rede
+def test_estban_real():
+    from safra_dados.connectors.bcb_estban import BcbEstbanConnector
+    from safra_dados.periodos import meses_entre
+
+    c = BcbEstbanConnector(load_settings())
+    ultimos = meses_entre("2026-01", None)[-6:]
+    recursos = c.discover(f"{ultimos[0][:4]}-{ultimos[0][4:]}", None)
+    assert {r.extra["nivel"] for r in recursos} == {"municipio", "agencia"}
+
+
+@pytest.mark.rede
+def test_sgs_real():
+    from safra_dados.connectors.bcb_sgs import BcbSgsConnector
+    from safra_dados.periodos import mes_anterior
+
+    c = BcbSgsConnector(load_settings())
+    m = mes_anterior()
+    recursos = [r for r in c.discover(f"{m[:4]}-{m[4:]}", f"{m[:4]}-{m[4:]}") if r.extra["serie"] == 433]
+    assert _fetch_primeiro(c, recursos).json()[0]["valor"]

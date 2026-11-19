@@ -33,3 +33,42 @@ fontes:
       Conglomerados-prudenciais: BLOPRUDENCIAL
     # documentos historicos usados no endpoint individualizado (pre-2023, por CNPJ/conglomerado)
     documentos_individualizado: ["4010", "4040"]
+
+  # ---- Bloco 2 (BCB complementar) ----
+  # Olinda (URLs sempre via safra_dados.olinda.olinda_url)
+  bcb_taxas_juros:
+    base_url: "https://olinda.bcb.gov.br/olinda/servico/taxaJuros/versao/v2/odata"
+    desde: "2024-01"
+
+  bcb_tarifas:
+    base_url: "https://olinda.bcb.gov.br/olinda/servico/Informes_ListaTarifasPorInstituicaoFinanceira/versao/v1/odata"
+    # grupo consolidado "15" = todas as instituicoes com tarifas publicadas
+    grupo_consolidado: "15"
+    desde: "2026-01"   # instantaneo (so ha o valor vigente); data_base = mes da coleta
+
+  bcb_unicad:
+    # Cadastro de entidades supervisionadas (BcBase v2, Unicad)
+    base_url: "https://olinda.bcb.gov.br/olinda/servico/BcBase/versao/v2/odata"
+    desde: "2024-01"
+
+  # NAO sao Olinda:
+  bcb_reclamacoes:
+    # API REST do RDR (ranking de reclamacoes), arquivos CSV por periodo
+    base_url: "https://www3.bcb.gov.br/rdrweb/rest/ext/ranking"
+    tipos: ["Bancos e financeiras"]
+    desde: "2024-01"
+
+  bcb_estban:
+    # Estban (Estatistica Bancaria por municipio/agencia), arquivos mensais
+    base_url: "https://www.bcb.gov.br/content/estatisticas/estatistica_bancaria_estban"
+    niveis: ["municipio", "agencia"]
+    desde: "2024-01"
+
+  bcb_sgs:
+    base_url: "https://api.bcb.gov.br/dados/serie"
+    series:
+      432: selic_meta
+      433: ipca
+      1: dolar_venda
+      12: cdi
+    desde: "2024-01"

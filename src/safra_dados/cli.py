@@ -10,26 +10,38 @@ import typer
 from .config import Settings, load_settings
 from .connectors.base import Connector
 from .connectors.bcb_cosif_balancetes import BcbCosifBalancetesConnector
-from .connectors.bcb_cosif_balancetes import NOME_FONTE as COSIF_FONTE
+from .connectors.bcb_estban import BcbEstbanConnector
 from .connectors.bcb_ifdata import BcbIfDataConnector
-from .connectors.bcb_ifdata import NOME_FONTE as IFDATA_FONTE
+from .connectors.bcb_reclamacoes import BcbReclamacoesConnector
+from .connectors.bcb_sgs import BcbSgsConnector
+from .connectors.bcb_tarifas import BcbTarifasConnector
+from .connectors.bcb_taxas_juros import BcbTaxasJurosConnector
+from .connectors.bcb_unicad import BcbUnicadConnector
 from .manifest import Checkpoint, load_checkpoint, read_entries, save_checkpoint, ultimas_por_url
 from .resolver import resolver_entidades
 
 app = typer.Typer(help="Coleta de dados publicos (BCB, CVM, SUSEP) sobre o grupo Banco Safra e pares.")
 
-_FONTE_ALIASES = {
-    "bcb.ifdata": IFDATA_FONTE,
-    "bcb.cosif": COSIF_FONTE,
+# alias da CLI -> (nome da fonte, classe do conector)
+_FONTES: dict[str, tuple[str, type[Connector]]] = {
+    "bcb.ifdata": ("bcb_ifdata", BcbIfDataConnector),
+    "bcb.cosif": ("bcb_cosif", BcbCosifBalancetesConnector),
+    "bcb.juros": ("bcb_taxas_juros", BcbTaxasJurosConnector),
+    "bcb.reclamacoes": ("bcb_reclamacoes", BcbReclamacoesConnector),
+    "bcb.tarifas": ("bcb_tarifas", BcbTarifasConnector),
+    "bcb.estban": ("bcb_estban", BcbEstbanConnector),
+    "bcb.unicad": ("bcb_unicad", BcbUnicadConnector),
+    "bcb.sgs": ("bcb_sgs", BcbSgsConnector),
 }
+_FONTE_ALIASES = {alias: nome for alias, (nome, _) in _FONTES.items()}
+_CONECTORES = {nome: cls for nome, cls in _FONTES.values()}
 
 
 def _build_connector(settings: Settings, fonte: str) -> Connector:
-    if fonte == IFDATA_FONTE:
-        return BcbIfDataConnector(settings)
-    if fonte == COSIF_FONTE:
-        return BcbCosifBalancetesConnector(settings)
-    raise ValueError(f"fonte desconhecida: {fonte}")
+    try:
+        return _CONECTORES[fonte](settings)
+    except KeyError:
+        raise ValueError(f"fonte desconhecida: {fonte}") from None
 
 
 def _resolver_fontes(fonte: str) -> list[str]:
@@ -82,7 +94,7 @@ def _ingest_fonte(settings: Settings, fonte: str, desde: str, ate: str | None) -
 
 @app.command()
 def ingest(
-    fonte: str = typer.Option(..., "--fonte", help="bcb.ifdata | bcb.cosif | all"),
+    fonte: str = typer.Option(..., "--fonte", help="bcb.ifdata | bcb.cosif | bcb.juros | bcb.reclamacoes | bcb.tarifas | bcb.estban | bcb.unicad | bcb.sgs | all"),
     desde: str = typer.Option(None, "--desde", help="Data-base inicial, formato AAAA-MM (padrao: config)"),
     ate: str = typer.Option(None, "--ate", help="Data-base final, formato AAAA-MM (padrao: ultima disponivel)"),
 ) -> None:
