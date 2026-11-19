@@ -112,13 +112,13 @@ def _ingest_fonte(settings: Settings, fonte: str, desde: str, ate: str | None) -
         entradas_data_base = ultimas_por_url([e for e in entradas if e.url in urls_atuais])
         ok = sum(1 for e in entradas_data_base if e.status in ("ok", "ja_existe", "importado_manual"))
         falha = sum(1 for e in entradas_data_base if e.status == "falha")
-        checkpoint.marcar(data_base, arquivos_ok=ok, arquivos_falha=falha)
-
         resultado = connector.normalize(data_base)
         if resultado:
+            checkpoint.marcar(data_base, arquivos_ok=ok, arquivos_falha=falha)
             typer.echo(f"[{fonte}] {data_base}: silver gravada em {resultado}")
         else:
-            typer.echo(f"[{fonte}] {data_base}: nenhum dado para normalizar (ok={ok}, falha={falha})")
+            # resposta vazia (ex.: periodo ainda nao publicado) NAO vira "coletado": o atualizar tenta de novo
+            typer.echo(f"[{fonte}] {data_base}: nenhum dado para normalizar (ok={ok}, falha={falha}); checkpoint nao atualizado")
 
     save_checkpoint(checkpoint_path, checkpoint)
     return falhas
@@ -266,7 +266,7 @@ def _imprimir_gold(settings: Settings, resultado) -> None:
             typer.echo(
                 f"  [conciliacao] {c['id']} ({c['componentes']}; {c['data_base']}): referencia {_bi(c['valor_referencia'])}; "
                 f"gold {_bi(c['valor_gold'])}; diferenca {_bi(c['diferenca'])} ({_pct(c['diferenca_pct'])}); "
-                f"cenario minimo {_bi(c['valor_gold_minimo'])} ({_pct(c['diferenca_minimo_pct'])})"
+                f"teto (so cotas identificadas) {_bi(c['valor_gold_teto'])} ({_pct(c['diferenca_teto_pct'])})"
             )
     finally:
         con.close()

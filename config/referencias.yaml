@@ -13,9 +13,14 @@ referencias:
     valor_mil_reais: 36323030
     fonte: "Banco Safra, IFRS, Nota 9 (set 2026): previdencia consolidada"
 
+# A partir desta data-base a metrica principal do PL de fundos (gold.fundos.pl_deduplicado_principal) e o PL
+# MINIMO (cotas confidenciais do CDA, sem CNPJ do ativo, tratadas como intragrupo); antes, o PL deduplicado
+# pelas cotas identificadas. Validado: conciliacao com a Nota 9 IFRS de 30/09/2026 em -1,096%.
+fundos_pl_minimo_desde: "2026-08"
+
 # Conciliacoes (gold.fundos_conciliacao). `referencia`: ids acima, somados (mesma data_referencia).
 #   visao: administrado | gerido | ambos  -> qual PL deduplicado do gold.fundos entra
-#   inclui_previdencia_ses: soma o PL (SES, pl_margem) das seguradoras/previdencia Safra aprovadas do mes
+#   inclui_previdencia_ses: soma as PROVISOES TECNICAS (SES) das seguradoras/previdencia Safra aprovadas do mes
 conciliacoes_fundos:
   - id: fundos_administrados
     descricao: "(a) PL deduplicado dos fundos administrados vs. fundos administrados da Nota 9"
@@ -23,7 +28,7 @@ conciliacoes_fundos:
     visao: administrado
     inclui_previdencia_ses: false
   - id: total
-    descricao: "(b) fundos administrados + PL das seguradoras/previdencia Safra (SES) vs. total da Nota 9"
+    descricao: "(b) fundos administrados + provisoes tecnicas das seguradoras/previdencia Safra (SES) vs. total da Nota 9"
     referencia: [fundos_administrados, previdencia_consolidada]
     visao: administrado
     inclui_previdencia_ses: true

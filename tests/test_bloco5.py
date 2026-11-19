@@ -147,14 +147,14 @@ def silver_juros(st: Settings) -> None:
 
 
 def silver_reclamacoes(st: Settings) -> None:
-    def r(inst, indice, grupo=None, tipo="Conglomerado", cnpj=None):
-        return {"ano": 2026, "periodo": 3, "categoria": "Top 15", "tipo_instituicao": tipo,
+    def r(inst, indice, grupo=None, tipo="Conglomerado", cnpj=None, cat="Top 15"):
+        return {"ano": 2026, "periodo": 3, "categoria": cat, "tipo_instituicao": tipo,
                 "qtd_procedentes_extrapoladas": int(indice), "qtd_analisadas": 10, "instituicao": inst, "cnpj_if": cnpj, "indice": indice,
                 "qtd_reclamacoes_respondidas": 100, "qtd_procedentes": 50, "qtd_clientes_total": 1_000_000, "data_base": "202609",
                 "grupo": grupo, "is_safra": grupo == "safra"}
     _silver(st, "bcb_reclamacoes/202609.parquet", [
-        r("SAFRA (conglomerado)", 200.0), r("ITAU (conglomerado)", 30.0), r("BRADESCO (conglomerado)", 50.0),
-        r("OUTRO BANCO (conglomerado)", 5.0),
+        r("SAFRA (conglomerado)", 200.0, cat="Demais"), r("ITAU (conglomerado)", 30.0), r("BRADESCO (conglomerado)", 50.0),
+        r("OUTRO BANCO (conglomerado)", 5.0, cat="Demais"), r("MAIS UM (conglomerado)", 50.0, cat="Demais"),
         r("BCO SAFRA S.A.", 20.0, "safra", "Banco/financeira", "58160789"),
     ])
 
@@ -361,7 +361,11 @@ def test_reclamacoes_rotulo_por_nome_exato_e_por_cnpj(gold_st):
     assert cong["banco_safra"]["indice_mediana_pares"] == 40 and cong["banco_safra"]["indice_dif_pares"] == 160
     # o indice vem do ranking do BCB (nao e recalculado); `indice_recalculado` so confere: extrapoladas por milhao de clientes
     assert cong["banco_safra"]["indice"] == 200 and cong["banco_safra"]["indice_recalculado"] == 200
-    assert cong["banco_safra"]["categoria"] == "Top 15" and cong["banco_safra"]["qtd_procedentes_extrapoladas"] == 200
+    assert cong["banco_safra"]["categoria"] == "Demais" and cong["banco_safra"]["qtd_procedentes_extrapoladas"] == 200
+    # mediana da PROPRIA categoria do ranking (todas as instituicoes da categoria: 200, 50, 5) alem dos pares nomeados
+    s = cong["banco_safra"]
+    assert s["indice_mediana_categoria"] == 50 and s["n_categoria"] == 3 and s["indice_dif_categoria"] == 150
+    assert cong["itau_unibanco"]["indice_mediana_categoria"] == 40 and cong["itau_unibanco"]["n_categoria"] == 2
 
 
 def test_agencias_contagem_e_mediana_dos_pares(gold_st):
@@ -386,6 +390,9 @@ def test_fundos_pl_deduplicado_por_visao(gold_st):
     assert (amb["n_fundos"], amb["pl_bruto"], amb["posicoes_em_cotas_do_grupo"], amb["pl_deduplicado"]) == (6, 223e6, 30e6, 193e6)
     assert (adm["cotas_confidenciais_sem_cnpj"], ger["cotas_confidenciais_sem_cnpj"], amb["cotas_confidenciais_sem_cnpj"]) == (20e6, 9e6, 20e6)
     assert adm["pl_deduplicado_minimo"] == 150e6 and amb["pl_deduplicado_minimo"] == 173e6
+    # setembro/2026 >= 2026-08: metrica principal = minimo; teto (pl_deduplicado) segue como informativo
+    assert adm["metodo_principal"] == "minimo" and adm["pl_deduplicado_principal"] == 150e6
+    assert ger["pl_deduplicado_principal"] == 114e6 and amb["pl_deduplicado_principal"] == 173e6
     assert adm["data_cda"] == date(2026, 9, 30) and adm["mes_encerrado"] is True
     assert adm["n_fundos_com_cda"] == 2  # F1 e F2 tem linhas no CDA
 
@@ -411,18 +418,36 @@ def test_fundos_decomposicao_por_papel(gold_st):
     assert sum(x["pl_bruto"] for x in d.values()) == 223e6  # = visao `ambos`
 
 
+def test_fundos_metrica_principal_muda_na_data_configurada(gold_st):
+    """`fundos_pl_minimo_desde`: antes da data a principal e o PL deduplicado pelas cotas identificadas; depois, o minimo."""
+    ref = gold_st.referencias_path()
+    dados = yaml.safe_load(ref.read_text(encoding="utf-8"))
+    dados["fundos_pl_minimo_desde"] = "2026-10"
+    ref.write_text(yaml.safe_dump(dados), encoding="utf-8")
+    criar_gold(gold_st)
+    f = {(l["data_base"], l["visao"]): l for l in _q(gold_st, "select * from gold.fundos")}
+    set_ = f[(date(2026, 9, 30), "administrado")]
+    assert set_["metodo_principal"] == "identificado" and set_["pl_deduplicado_principal"] == 170e6 == set_["pl_deduplicado"]
+    out = f[(date(2026, 10, 29), "administrado")]
+    assert out["metodo_principal"] == "minimo" and out["pl_deduplicado_principal"] == out["pl_deduplicado_minimo"]
+    (a,) = [x for x in conciliacao_fundos(conectar_gold(gold_st)) if x["id"] == "fundos_administrados"]
+    assert a["metodo_principal"] == "identificado" and a["valor_gold"] == 170e6
+
+
 def test_fundos_conciliacao_a_e_b_com_decomposicao(gold_st):
     c = {x["id"]: x for x in conciliacao_fundos(conectar_gold(gold_st))}
     assert set(c) == {"fundos_administrados", "total"}
     a, t = c["fundos_administrados"], c["total"]
-    # (a) administrado dedup 170 vs 150 (mil reais -> reais)
-    assert a["valor_referencia"] == 150e6 and a["valor_gold"] == 170e6 and a["diferenca"] == 20e6
-    assert a["diferenca_pct"] == 13.333 and a["valor_gold_minimo"] == 150e6 and a["diferenca_minimo_pct"] == 0
-    # (b) administrado dedup + PL SES das seguradoras/previdencia Safra (so grupo safra: 4e6) vs 150+10
+    # (a) metrica principal (minimo, set/2026) 150 vs 150 (mil reais -> reais); teto 170 so informativo
+    assert a["valor_referencia"] == 150e6 and a["metodo_principal"] == "minimo"
+    assert a["valor_gold"] == 150e6 and a["diferenca"] == 0 and a["diferenca_pct"] == 0
+    assert a["valor_gold_teto"] == 170e6 and a["diferenca_teto_pct"] == 13.333
+    # (b) administrado (principal) + PROVISOES TECNICAS das entidades Safra no SES (30e6) vs 150+10
     assert t["componentes"] == "fundos_administrados + previdencia_consolidada" and t["valor_referencia"] == 160e6
-    assert t["pl_ses_safra"] == 4e6 and t["valor_gold"] == 174e6 and t["diferenca"] == 14e6 and t["diferenca_pct"] == 8.75
-    assert t["valor_gold_minimo"] == 154e6 and t["diferenca_minimo_pct"] == -3.75
-    assert t["provisoes_ses_safra"] == 30e6 and t["diferenca_com_provisoes"] == 170e6 + 30e6 - 160e6
+    assert t["provisoes_ses_safra"] == 30e6 and t["valor_gold"] == 180e6 and t["diferenca"] == 20e6 and t["diferenca_pct"] == 12.5
+    assert t["valor_gold_teto"] == 200e6 and t["diferenca_teto_pct"] == 25.0
+    # variante informativa com o PL do SES (4e6, so grupo safra) no lugar das provisoes
+    assert t["pl_ses_safra"] == 4e6 and t["valor_gold_com_pl_ses"] == 154e6 and t["diferenca_com_pl_ses"] == -6e6
     # decomposicao e administracao fiduciaria para terceiros (administrador Safra, gestor de fora)
     assert (a["pl_so_administrado"], a["pl_so_gerido"], a["pl_administra_e_gere"]) == (93e6, 30e6, 100e6)
     assert a["pl_adm_safra_gestor_externo"] == a["pl_so_administrado"]
@@ -433,7 +458,7 @@ def test_fundos_conciliacao_a_e_b_com_decomposicao(gold_st):
     ref.write_text(yaml.safe_dump(dados), encoding="utf-8")
     criar_gold(gold_st)
     c2 = {x["id"]: x for x in conciliacao_fundos(conectar_gold(gold_st))}
-    assert c2["fundos_administrados"]["diferenca"] == 0 and c2["fundos_administrados"]["diferenca_pct"] == 0
+    assert c2["fundos_administrados"]["diferenca"] == -20e6 and c2["fundos_administrados"]["diferenca_teto_pct"] == 0
 
 
 def test_referencias_invalidas_sao_rejeitadas():
@@ -593,3 +618,36 @@ def test_cli_atualizar_dry_run_gold_e_exportar(tmp_path, monkeypatch):
     assert r.exit_code == 0 and (st.exports_dir / "capital.csv").is_file()
     r = runner.invoke(app, ["exportar", "--view", "juros", "--formato", "csv"])
     assert r.exit_code != 0  # view ausente (silver de juros nao existe)
+
+
+def test_ingest_resposta_vazia_nao_marca_checkpoint(tmp_path, monkeypatch):
+    """Periodo ainda nao publicado (API devolve listas vazias): nada a normalizar => checkpoint intacto,
+    para o `atualizar` tentar de novo."""
+    from safra_dados import cli
+    from safra_dados.connectors.base import Recurso
+    from safra_dados.manifest import load_checkpoint
+
+    st = _settings(tmp_path)
+
+    class Vazio:
+        falhas_discover: list = []
+
+        def discover(self, desde, ate=None):
+            return [Recurso("bcb_ifdata", "202609", "http://x/a", "a.json")]
+
+        def fetch(self, r):
+            pass
+
+        def normalize(self, data_base):
+            return None
+
+    class Cheio(Vazio):
+        def normalize(self, data_base):
+            return tmp_path / "x.parquet"
+
+    monkeypatch.setattr(cli, "_build_connector", lambda settings, fonte: Vazio())
+    cli._ingest_fonte(st, "bcb_ifdata", "2026-09", None)
+    assert load_checkpoint(st.checkpoint_path("bcb_ifdata"), "bcb_ifdata").data_bases == {}
+    monkeypatch.setattr(cli, "_build_connector", lambda settings, fonte: Cheio())
+    cli._ingest_fonte(st, "bcb_ifdata", "2026-09", None)
+    assert "202609" in load_checkpoint(st.checkpoint_path("bcb_ifdata"), "bcb_ifdata").data_bases

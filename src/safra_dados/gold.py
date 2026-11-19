@@ -320,17 +320,22 @@ with r as (
   left join gold.dim_entidade dd
     on dd.tipo_id = 'cnpj_raiz' and s.cnpj_if is not null and dd.identificador = left(s.cnpj_if, 8)
 ),
-f as (
+m as (
+  -- a mediana da categoria usa TODAS as instituicoes do ranking naquela categoria (inclusive o proprio Safra)
   select *,
-    median(indice) filter (where grupo = 'pares') over (partition by data_base, tipo_instituicao) as m_ind
-  from r where grupo is not null
-)
+    median(indice) filter (where grupo = 'pares') over (partition by data_base, tipo_instituicao) as m_ind,
+    median(indice) over (partition by data_base, categoria, tipo_instituicao) as m_cat,
+    count(*) over (partition by data_base, categoria, tipo_instituicao) as n_cat
+  from r
+),
+f as (select * from m where grupo is not null)
 select data_base, grupo, entidade, instituicao, tipo_instituicao, categoria, ano, periodo,
   round(indice, 3) as indice, qtd_reclamacoes_respondidas, qtd_procedentes, qtd_procedentes_extrapoladas, qtd_analisadas,
   qtd_clientes_total,
   -- conferencia: o indice publicado e procedentes extrapoladas por milhao de clientes (CCS e SCR)
   round(qtd_procedentes_extrapoladas * 1000000.0 / nullif(qtd_clientes_total, 0), 3) as indice_recalculado,
-  round(m_ind, 3) as indice_mediana_pares, round(indice - m_ind, 3) as indice_dif_pares
+  round(m_ind, 3) as indice_mediana_pares, round(indice - m_ind, 3) as indice_dif_pares,
+  round(m_cat, 3) as indice_mediana_categoria, n_cat as n_categoria, round(indice - m_cat, 3) as indice_dif_categoria
 from f
 """
 
@@ -456,6 +461,12 @@ select pl.data_base, 'safra' as grupo, 'fundos_safra' as entidade, pl.visao, pl.
   pl.pl_bruto - coalesce(pos.cotas_do_grupo, 0) as pl_deduplicado,
   coalesce(conf.cotas_confidenciais_sem_cnpj, 0) as cotas_confidenciais_sem_cnpj,
   pl.pl_bruto - coalesce(pos.cotas_do_grupo, 0) - coalesce(conf.cotas_confidenciais_sem_cnpj, 0) as pl_deduplicado_minimo,
+  -- metrica principal: PL minimo a partir de @@DESDE@@ (cotas confidenciais sem CNPJ tratadas como intragrupo),
+  -- identificado antes; `pl_deduplicado` (teto) fica como informativo
+  case when pl.data_base >= date '@@DESDE@@'
+       then pl.pl_bruto - coalesce(pos.cotas_do_grupo, 0) - coalesce(conf.cotas_confidenciais_sem_cnpj, 0)
+       else pl.pl_bruto - coalesce(pos.cotas_do_grupo, 0) end as pl_deduplicado_principal,
+  case when pl.data_base >= date '@@DESDE@@' then 'minimo' else 'identificado' end as metodo_principal,
   pos.data_cda, coalesce(cob.n_fundos_com_cda, 0) as n_fundos_com_cda, d.mes_encerrado
 from pl
 left join pos on pos.data_base = pl.data_base and pos.visao = pl.visao
@@ -498,29 +509,30 @@ dec as (
 ),
 base as (
   select r.id, r.descricao, r.data_referencia as data_base, r.componentes, r.visao, r.inclui_previdencia_ses,
-    r.valor_referencia, f.data_base as data_base_gold,
-    f.pl_deduplicado as pl_dedup_visao, f.pl_deduplicado_minimo as pl_dedup_minimo_visao,
+    r.valor_referencia, f.data_base as data_base_gold, f.metodo_principal,
+    f.pl_deduplicado_principal as pl_principal, f.pl_deduplicado as pl_teto,
     s.pl_ses as pl_ses_safra, s.provisoes_ses as provisoes_ses_safra,
+    case when r.inclui_previdencia_ses then coalesce(s.provisoes_ses, 0) else 0 end as previdencia_incluida,
     r.fonte, f.pl_bruto as pl_bruto_visao, f.posicoes_em_cotas_do_grupo, f.cotas_confidenciais_sem_cnpj
   from gold.referencias_fundos r
   left join gold.fundos f on f.visao = r.visao and date_trunc('month', f.data_base) = date_trunc('month', r.data_referencia)
   left join ses s on s.damesano = strftime(r.data_referencia, '%Y%m')
 )
 select b.id, b.descricao, b.data_base, 'safra' as grupo, 'fundos_safra' as entidade, b.componentes, b.visao,
-  b.inclui_previdencia_ses, b.valor_referencia, b.data_base_gold,
+  b.inclui_previdencia_ses, b.valor_referencia, b.data_base_gold, b.metodo_principal,
   b.pl_bruto_visao, b.posicoes_em_cotas_do_grupo, b.cotas_confidenciais_sem_cnpj,
-  b.pl_dedup_visao, b.pl_ses_safra,
-  b.pl_dedup_visao + case when b.inclui_previdencia_ses then coalesce(b.pl_ses_safra, 0) else 0 end as valor_gold,
-  b.pl_dedup_visao + case when b.inclui_previdencia_ses then coalesce(b.pl_ses_safra, 0) else 0 end - b.valor_referencia as diferenca,
-  round(100 * (b.pl_dedup_visao + case when b.inclui_previdencia_ses then coalesce(b.pl_ses_safra, 0) else 0 end
-    - b.valor_referencia) / nullif(b.valor_referencia, 0), 3) as diferenca_pct,
-  -- cenario minimo: tira tambem todas as cotas confidenciais (teto do que pode ser intragrupo)
-  b.pl_dedup_minimo_visao + case when b.inclui_previdencia_ses then coalesce(b.pl_ses_safra, 0) else 0 end as valor_gold_minimo,
-  round(100 * (b.pl_dedup_minimo_visao + case when b.inclui_previdencia_ses then coalesce(b.pl_ses_safra, 0) else 0 end
-    - b.valor_referencia) / nullif(b.valor_referencia, 0), 3) as diferenca_minimo_pct,
-  -- variante informativa: previdencia pelas provisoes tecnicas em vez do PL
-  b.provisoes_ses_safra,
-  b.pl_dedup_visao + coalesce(b.provisoes_ses_safra, 0) - b.valor_referencia as diferenca_com_provisoes,
+  b.pl_principal as pl_dedup_visao,
+  -- (b): previdencia entra pelas PROVISOES TECNICAS das entidades Safra no SES (regra padrao)
+  b.provisoes_ses_safra, b.pl_ses_safra,
+  b.pl_principal + b.previdencia_incluida as valor_gold,
+  b.pl_principal + b.previdencia_incluida - b.valor_referencia as diferenca,
+  round(100 * (b.pl_principal + b.previdencia_incluida - b.valor_referencia) / nullif(b.valor_referencia, 0), 3) as diferenca_pct,
+  -- informativos: teto (so cotas identificadas) e variante com o PL do SES no lugar das provisoes
+  b.pl_teto + b.previdencia_incluida as valor_gold_teto,
+  round(100 * (b.pl_teto + b.previdencia_incluida - b.valor_referencia) / nullif(b.valor_referencia, 0), 3) as diferenca_teto_pct,
+  b.pl_principal + case when b.inclui_previdencia_ses then coalesce(b.pl_ses_safra, 0) else 0 end as valor_gold_com_pl_ses,
+  b.pl_principal + case when b.inclui_previdencia_ses then coalesce(b.pl_ses_safra, 0) else 0 end - b.valor_referencia
+    as diferenca_com_pl_ses,
   d.pl_so_administrado, d.pl_so_gerido, d.pl_administra_e_gere,
   d.pl_so_administrado as pl_adm_safra_gestor_externo,
   b.fonte
@@ -598,6 +610,9 @@ def _glob_silver(settings: Settings, padrao: str) -> str:
     return (settings.silver_dir / padrao).as_posix()
 
 
+DESDE_PL_MINIMO_PADRAO = "2026-08-01"
+
+
 def criar_gold(settings: Settings, caminho: Path | None = None) -> ResultadoGold:
     """(Re)cria views e tabelas de configuracao em `data/gold/safra.duckdb`. Idempotente."""
     caminho = caminho or settings.gold_db_path
@@ -636,6 +651,10 @@ def criar_gold(settings: Settings, caminho: Path | None = None) -> ResultadoGold
         for linha in referencias_fundos(refs):
             con.execute("insert into gold.referencias_fundos values (?, ?, ?, ?, ?, ?, ?, ?)", linha)
 
+        desde_minimo = str(refs.get("fundos_pl_minimo_desde", DESDE_PL_MINIMO_PADRAO))
+        if len(desde_minimo) == 7:
+            desde_minimo += "-01"
+        date.fromisoformat(desde_minimo)  # valida
         for nome, (requer, sql) in VIEWS_GOLD.items():
             faltam = [r for r in requer if r not in resultado.silver_views]
             if faltam:
@@ -643,7 +662,7 @@ def criar_gold(settings: Settings, caminho: Path | None = None) -> ResultadoGold
                 con.execute(f"drop view if exists gold.{nome}")
                 continue
             try:
-                con.execute(f"create or replace view gold.{nome} as {sql}")
+                con.execute(f"create or replace view gold.{nome} as {sql.replace('@@DESDE@@', desde_minimo)}")
                 resultado.criadas.append(nome)
             except duckdb.Error as exc:
                 resultado.erros[nome] = str(exc).splitlines()[0]
@@ -752,10 +771,12 @@ def resumo_safra(con: duckdb.DuckDBPyConnection) -> list[str]:
             linhas.append("[juros] taxa a.a. Safra vs mediana pares: " + "; ".join(
                 f"{m} {_pct(t)} vs {_pct(p)} (n={n})" for m, t, p, n in rows))
     if "reclamacoes" in existentes:
-        r = um("select data_base, indice, indice_mediana_pares, qtd_reclamacoes_respondidas from gold.reclamacoes "
-               "where grupo = 'safra' order by data_base desc limit 1")
+        r = um("select data_base, indice, indice_mediana_pares, qtd_reclamacoes_respondidas, indice_mediana_categoria, "
+               "categoria, n_categoria from gold.reclamacoes where grupo = 'safra' and tipo_instituicao = 'Conglomerado' "
+               "order by data_base desc limit 1")
         if r:
-            linhas.append(f"[reclamacoes] {r[0]}: indice {_num(r[1])} (mediana pares {_num(r[2])}), {r[3]} reclamacoes respondidas")
+            linhas.append(f"[reclamacoes] {r[0]}: indice {_num(r[1])} (mediana pares nomeados {_num(r[2])}; "
+                          f"mediana da categoria '{r[5]}' {_num(r[4])}, n={r[6]}), {r[3]} reclamacoes respondidas")
     if "agencias" in existentes:
         r = um("select data_base, sum(n_agencias), any_value(n_agencias_mediana_pares) from gold.agencias where grupo = 'safra' "
                "group by data_base order by data_base desc limit 1")
@@ -764,13 +785,15 @@ def resumo_safra(con: duckdb.DuckDBPyConnection) -> list[str]:
     if "fundos" in existentes:
         rows = con.execute(
             "select visao, n_fundos, pl_bruto, posicoes_em_cotas_do_grupo, pl_deduplicado, data_base, mes_encerrado, "
-            "n_fundos_com_cda, cotas_confidenciais_sem_cnpj, pl_deduplicado_minimo from gold.fundos "
+            "n_fundos_com_cda, cotas_confidenciais_sem_cnpj, pl_deduplicado_minimo, pl_deduplicado_principal, "
+            "metodo_principal from gold.fundos "
             "where data_base = (select coalesce(max(data_base) filter (where mes_encerrado), max(data_base)) "
             "from gold.fundos) order by visao").fetchall()
-        for v, n, bruto, cotas, dedup, db, enc, ncda, conf, minimo in rows:
+        for v, n, bruto, cotas, dedup, db, enc, ncda, conf, minimo, principal, metodo in rows:
             linhas.append(
-                f"[fundos] {db} {v}: {n} fundos, PL bruto {_bi(bruto)} - cotas do grupo {_bi(cotas)} = {_bi(dedup)} "
-                f"(minimo, sem cotas confidenciais {_bi(conf)}: {_bi(minimo)}) [CDA em {ncda}/{n} fundos]"
+                f"[fundos] {db} {v}: {n} fundos, PL bruto {_bi(bruto)}; principal ({metodo}) {_bi(principal)}; "
+                f"teto {_bi(dedup)} (cotas do grupo identificadas {_bi(cotas)}); minimo {_bi(minimo)} "
+                f"(cotas confidenciais {_bi(conf)}) [CDA em {ncda}/{n} fundos]"
                 + ("" if enc else " (mes em curso)"))
     if "seguros" in existentes:
         rows = con.execute(
