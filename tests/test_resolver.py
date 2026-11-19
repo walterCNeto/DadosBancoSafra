@@ -62,7 +62,7 @@ def test_resolver_entidades_grava_yaml_preserva_aprovado_e_outros_grupos(setting
     previa = {"grupos": {"safra": {"entidades": {"alfa": {"status": "sugestao", "aprovado": True}}},
                          "outro": {"entidades": {}}}}
     settings = settings_factory(entidades, previa)
-    res = resolver_entidades(settings, grupo="safra", anomes="202606", cadastro=CAD)
+    res = resolver_entidades(settings, grupo="safra", anomes="202606", cadastro=CAD, incluir_cvm=False)
     assert res["grupos"]["safra"]["entidades"]["alfa"]["aprovado"] is True
     assert "outro" in res["grupos"]
     gravado = yaml.safe_load(settings.entidades_resolvidas_path().read_text(encoding="utf-8"))

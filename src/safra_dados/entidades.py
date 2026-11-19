@@ -89,27 +89,38 @@ class MapaEntidades:
         return self.grupo_de(*valores) is not None
 
 
-def carregar_mapa_entidades(settings: Settings) -> MapaEntidades:
-    """Constroi o mapa identificador -> grupo a partir do YAML de configuracao
-    (identificadores informados a mao) e do arquivo gerado pelo resolvedor
-    (apenas entidades com status 'confirmado' ou 'resolvido', ou aprovadas
-    manualmente com `aprovado: true`; sugestoes por nome nunca entram)."""
+def mapa_de_dicts(cfg: dict[str, Any], resolvidas: dict[str, Any] | None) -> MapaEntidades:
+    """Mapa identificador -> grupo a partir dos dicts de entidades.yaml e do arquivo
+    resolvido (so status confirmado/resolvido ou `aprovado: true`; sugestoes nunca
+    entram). Sugestoes CVM (`cvm.sugestoes`) entram apenas se `aprovado: true`."""
     mapa = MapaEntidades()
-
-    cfg = load_entidades(settings)
     for grupo, grupo_cfg in (cfg.get("grupos") or {}).items():
         mapa.adicionar(grupo, grupo_cfg.get("cnpj_raiz"))
         for entidade in (grupo_cfg.get("entidades") or {}).values():
             mapa.adicionar(grupo, *(entidade.get(c) for c in _CAMPOS_ID_CONFIG))
 
-    resolvidas = load_entidades_resolvidas(settings) or {}
+    resolvidas = resolvidas or {}
     for grupo, grupo_res in (resolvidas.get("grupos") or {}).items():
         for entidade in (grupo_res.get("entidades") or {}).values():
             if not _utilizavel(entidade):
                 continue
             mapa.adicionar(grupo, *(entidade.get(c) for c in _CAMPOS_ID_RESOLVIDA))
             mapa.adicionar(grupo, *(entidade.get("cnpjs_relacionados") or []))
+
+    for grupo, por_entidade in ((resolvidas.get("cvm") or {}).get("sugestoes") or {}).items():
+        for itens in (por_entidade or {}).values():
+            for item in itens or []:
+                if item.get("aprovado"):
+                    mapa.adicionar(grupo, item.get("cnpj_raiz"), item.get("cnpj"))
     return mapa
+
+
+def carregar_mapa_entidades(settings: Settings) -> MapaEntidades:
+    """Constroi o mapa identificador -> grupo a partir do YAML de configuracao
+    (identificadores informados a mao) e do arquivo gerado pelo resolvedor
+    (apenas entidades com status 'confirmado' ou 'resolvido', ou aprovadas
+    manualmente com `aprovado: true`; sugestoes por nome nunca entram)."""
+    return mapa_de_dicts(load_entidades(settings), load_entidades_resolvidas(settings))
 
 
 def codigos_busca_individualizado(settings: Settings, grupo: str = "safra") -> list[str]:

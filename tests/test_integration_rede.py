@@ -125,3 +125,82 @@ def test_sgs_real():
     m = mes_anterior()
     recursos = [r for r in c.discover(f"{m[:4]}-{m[4:]}", f"{m[:4]}-{m[4:]}") if r.extra["serie"] == 433]
     assert _fetch_primeiro(c, recursos).json()[0]["valor"]
+
+
+# ---------------- Bloco 3 (CVM): um teste de rede por conector ----------------
+
+def _cvm_discover_e_head(conector, desde, ate=None):
+    """discover real via CKAN + HEAD no primeiro recurso (evita baixar zips grandes)."""
+    recursos = conector.discover(desde, ate)
+    assert recursos, f"discover vazio: {conector.falhas_discover}"
+    assert not conector.falhas_discover
+    assert conector._get_client().exists(recursos[0].url), recursos[0].url
+    return recursos
+
+
+@pytest.mark.rede
+def test_cvm_cadastros_real():
+    from safra_dados.connectors.cvm_cadastros import CvmCadastrosConnector, linhas_para_busca
+
+    c = CvmCadastrosConnector(load_settings())
+    tabelas = c.baixar_para_busca()
+    assert {"cia_aberta", "intermed", "adm_cart_pj", "coord_oferta"} <= set(tabelas)
+    assert any(l["cnpj_raiz"] == "58160789" for l in linhas_para_busca(tabelas))  # Banco Safra
+
+
+@pytest.mark.rede
+def test_cvm_fundos_cad_real():
+    from safra_dados.connectors.cvm_fundos import CvmFundosCadConnector
+
+    recursos = _cvm_discover_e_head(CvmFundosCadConnector(load_settings()), "2024-01")
+    assert {r.nome_arquivo for r in recursos} == {"registro__registro_fundo_classe.zip", "legado__cad_fi.csv"}
+
+
+@pytest.mark.rede
+def test_cvm_fundos_informe_real():
+    import polars as pl
+    from safra_dados.connectors.cvm_fundos import CvmFundosInformeConnector
+    from safra_dados.periodos import mes_anterior
+
+    c = CvmFundosInformeConnector(load_settings())
+    c._universo = pl.DataFrame({"cnpj": ["x"], "grupo": ["safra"], "is_safra": [True]})
+    m = mes_anterior()
+    _cvm_discover_e_head(c, f"{m[:4]}-{m[4:]}")
+    # mes fora da janela de 12 meses do CKAN: tem que sair do template + HEAD
+    antigos = c.discover("2024-01", "2024-01")
+    assert [r.data_base for r in antigos] == ["202401"]
+
+
+@pytest.mark.rede
+def test_cvm_fundos_cda_real():
+    import datetime
+
+    import polars as pl
+    from safra_dados.connectors.cvm_fundos import CvmFundosCdaConnector
+    from safra_dados.periodos import mes_anterior
+
+    c = CvmFundosCdaConnector(load_settings())
+    c._universo = pl.DataFrame({"cnpj": ["x"], "grupo": ["safra"], "is_safra": [True]})
+    # o CDA sai com defasagem: o ultimo mes publicado e o de dois meses atras
+    m = mes_anterior(datetime.date.today().replace(day=1) - datetime.timedelta(days=1))
+    _cvm_discover_e_head(c, f"{m[:4]}-{m[4:]}")
+
+
+@pytest.mark.rede
+def test_cvm_ofertas_real():
+    from safra_dados.connectors.cvm_ofertas import CvmOfertasConnector
+
+    _cvm_discover_e_head(CvmOfertasConnector(load_settings()), "2024-01")
+
+
+@pytest.mark.rede
+@pytest.mark.parametrize("classe", ["CvmDfpConnector", "CvmItrConnector", "CvmFreConnector", "CvmIpeConnector"])
+def test_cvm_documentos_cia_aberta_real(classe):
+    import datetime
+
+    from safra_dados.connectors import cvm_cia_aberta
+
+    c = getattr(cvm_cia_aberta, classe)(load_settings())
+    ano = datetime.date.today().year - 1
+    recursos = _cvm_discover_e_head(c, f"{ano}-01")
+    assert all(int(r.data_base) >= ano for r in recursos)

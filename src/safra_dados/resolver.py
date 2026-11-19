@@ -13,6 +13,12 @@ Status por entidade:
                  revisao humana. NUNCA usada na marcacao ate alguem copiar o
                  identificador para entidades.yaml ou marcar `aprovado: true`.
 - nao_encontrado / falha_api.
+
+Sugestoes CVM (secao `cvm.sugestoes`, so para revisao humana): para cada entidade,
+os registros dos cadastros da CVM (companhia aberta, intermediario, administrador de
+carteira, coordenador de oferta) que casam por CNPJ raiz (identificadores ja conhecidos
+da entidade/conglomerado) ou por nome (`busca_nome_cvm`, ou `busca_nome`). Item com
+`aprovado: true` passa a marcar linhas (por CNPJ); os demais nunca marcam.
 """
 
 from __future__ import annotations
@@ -23,7 +29,8 @@ import yaml
 
 from .config import Settings, load_entidades, load_entidades_resolvidas
 from .connectors.bcb_ifdata import BcbIfDataConnector, latest_available_anomes
-from .entidades import normalizar_identificador, normalizar_nome
+from .connectors.cvm_cadastros import CvmCadastrosConnector, linhas_para_busca
+from .entidades import mapa_de_dicts, normalizar_identificador, normalizar_nome
 from .http import DownloadError, SafraDadosClient
 from .manifest import now_iso
 
@@ -116,11 +123,96 @@ def resolver_entidade(cfg: dict, cadastro: list[dict], erro_api: str | None) -> 
     }
 
 
+def _situacao_ativa(situacao: str | None) -> bool:
+    return normalizar_nome(situacao).startswith(("ATIVO", "EM FUNCIONAMENTO NORMAL"))
+
+
+def sugerir_cvm(
+    cfg: dict, entrada: dict[str, Any], linhas_cvm: list[dict], ids_no_mapa: set[str]
+) -> list[dict[str, Any]]:
+    """Registros CVM candidatos de uma entidade (pura). Agrupa por CNPJ raiz."""
+    ids = [cfg.get("cnpj_raiz"), cfg.get("cnpj"), entrada.get("cnpj"), *(entrada.get("cnpjs_relacionados") or [])]
+    raizes = {r for r in (normalizar_identificador(i) for i in ids) if r and len(r) == 8 and r.isdigit()}
+    termos = [t for t in (normalizar_nome(x) for x in (cfg.get("busca_nome_cvm") or cfg.get("busca_nome") or [])) if t]
+
+    por_raiz: dict[str, dict[str, Any]] = {}
+    for linha in linhas_cvm:
+        raiz = linha["cnpj_raiz"]
+        nomes = normalizar_nome(linha.get("nome")) + "|" + normalizar_nome(linha.get("nome_comercial"))
+        por_id = raiz in raizes
+        por_nome = any(t in nomes for t in termos)
+        if not (por_id or por_nome):
+            continue
+        item = por_raiz.setdefault(raiz, {
+            "cnpj": linha["cnpj"], "cnpj_raiz": raiz, "denominacao": linha.get("nome"),
+            "origem": set(), "ativo": False, "no_mapa": raiz in ids_no_mapa, "aprovado": False, "registros": [],
+        })
+        item["origem"].add("identificador" if por_id else "nome")
+        registro = {"cadastro": linha["cadastro"], "categoria": linha.get("categoria"), "situacao": linha.get("situacao")}
+        if registro not in item["registros"]:
+            item["registros"].append(registro)
+        if _situacao_ativa(linha.get("situacao")):
+            if not item["ativo"]:
+                item["denominacao"] = linha.get("nome")
+            item["ativo"] = True
+
+    itens = list(por_raiz.values())
+    for item in itens:
+        item["origem"] = "+".join(sorted(item["origem"]))
+    return sorted(itens, key=lambda i: (not i["ativo"], i["denominacao"] or ""))
+
+
+def _resolver_cvm(
+    settings: Settings, grupos_cfg: dict, grupos_res: dict, anterior: dict, linhas_cvm: list[dict] | None
+) -> dict[str, Any]:
+    """Monta a secao `cvm` do YAML resolvido. Em falha, preserva as sugestoes anteriores."""
+    cvm_anterior = (anterior or {}).get("cvm") or {}
+    erro: str | None = None
+    if linhas_cvm is None:
+        client = SafraDadosClient(settings.http)
+        try:
+            conector = CvmCadastrosConnector(settings, client=client)
+            linhas_cvm = linhas_para_busca(conector.baixar_para_busca())
+        except (DownloadError, RuntimeError) as exc:
+            erro = str(exc)
+        finally:
+            client.close()
+    if erro is not None or linhas_cvm is None:
+        return {**cvm_anterior, "status": "falha_api", "erro": erro, "tentado_em": now_iso()}
+
+    ids_no_mapa = set(mapa_de_dicts(load_entidades(settings), {"grupos": grupos_res}).por_identificador)
+    aprovados = {
+        (g, e, i["cnpj_raiz"])
+        for g, por_ent in (cvm_anterior.get("sugestoes") or {}).items()
+        for e, itens in (por_ent or {}).items()
+        for i in itens or [] if i.get("aprovado")
+    }
+    sugestoes = {g: v for g, v in (cvm_anterior.get("sugestoes") or {}).items() if g not in grupos_cfg}
+    for nome_grupo, grupo_cfg in grupos_cfg.items():
+        por_entidade = {}
+        for nome, cfg in (grupo_cfg.get("entidades") or {}).items():
+            entrada = grupos_res[nome_grupo]["entidades"][nome]
+            itens = sugerir_cvm(cfg or {}, entrada, linhas_cvm, ids_no_mapa)
+            for item in itens:
+                item["aprovado"] = (nome_grupo, nome, item["cnpj_raiz"]) in aprovados
+            por_entidade[nome] = itens
+        sugestoes[nome_grupo] = por_entidade
+    return {
+        "gerado_em": now_iso(),
+        "status": "ok",
+        "erro": None,
+        "fonte": "cvm: cia_aberta-cad, intermed-cad, adm_cart-cad, coord_oferta-cad",
+        "sugestoes": sugestoes,
+    }
+
+
 def resolver_entidades(
     settings: Settings,
     grupo: str | None = None,
     anomes: str | None = None,
     cadastro: list[dict] | None = None,
+    incluir_cvm: bool = True,
+    cadastro_cvm: list[dict] | None = None,
 ) -> dict[str, Any]:
     """Resolve um grupo (ou todos, se `grupo` for None) e grava o YAML resolvido."""
     anomes = anomes or latest_available_anomes()
@@ -153,6 +245,10 @@ def resolver_entidades(
             entidades_res[nome] = entrada
         grupos_res[nome_grupo] = {"entidades": entidades_res}
 
+    cvm = (
+        _resolver_cvm(settings, grupos_cfg, grupos_res, load_entidades_resolvidas(settings) or {}, cadastro_cvm)
+        if incluir_cvm else ((load_entidades_resolvidas(settings) or {}).get("cvm"))
+    )
     resultado = {
         "gerado_em": now_iso(),
         "anomes_consultado": anomes,
@@ -161,6 +257,8 @@ def resolver_entidades(
         "erro_consulta": erro_api,
         "grupos": grupos_res,
     }
+    if cvm is not None:
+        resultado["cvm"] = cvm
 
     out_path = settings.entidades_resolvidas_path()
     out_path.parent.mkdir(parents=True, exist_ok=True)

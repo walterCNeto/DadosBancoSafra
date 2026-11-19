@@ -1,4 +1,4 @@
-gerado_em: '2026-11-19T12:27:13+00:00'
+gerado_em: '2026-11-19T14:13:27+00:00'
 anomes_consultado: '202606'
 fonte: bcb_ifdata.IfDataCadastro
 status_consulta: ok
@@ -230,6 +230,21 @@ grupos:
           codigo_conglomerado_financeiro: null
           cnpj_instituicao_lider: null
           situacao: I
+      dtvm_safra:
+        status: sugestao
+        candidatos:
+        - cod_inst: '58497728'
+          nome_instituicao: BOASAFRA DISTRIBUIDORA DE TIT. E VALORES MOBILIARIOS LTDA.
+          codigo_conglomerado_prudencial: null
+          codigo_conglomerado_financeiro: null
+          cnpj_instituicao_lider: null
+          situacao: I
+        - cod_inst: 01638542
+          nome_instituicao: SAFRA DISTRIBUIDORA DE TÍTULOS E VALORES MOBILIÁRIOS LTDA.
+          codigo_conglomerado_prudencial: C0080109
+          codigo_conglomerado_financeiro: C0010083
+          cnpj_instituicao_lider: '58160789'
+          situacao: A
       corretora_safra:
         status: sugestao
         candidatos:
@@ -419,3 +434,1408 @@ grupos:
         - '30822936'
         - '31546476'
         - '31591399'
+cvm:
+  gerado_em: '2026-11-19T14:13:27+00:00'
+  status: ok
+  erro: null
+  fonte: 'cvm: cia_aberta-cad, intermed-cad, adm_cart-cad, coord_oferta-cad'
+  sugestoes:
+    safra:
+      banco_safra:
+      - cnpj: '62178421000164'
+        cnpj_raiz: '62178421'
+        denominacao: ALFA CORRETORA DE CAMBIO E VALORES MOBILIARIOS S.A
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+        - cadastro: coord_oferta
+          categoria: null
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '60770336000165'
+        cnpj_raiz: '60770336'
+        denominacao: BANCO ALFA DE INVESTIMENTO S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS DE INVESTIMENTOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '03017677000120'
+        cnpj_raiz: '03017677'
+        denominacao: BANCO J. SAFRA S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS DE INVESTIMENTOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '58160789000128'
+        cnpj_raiz: '58160789'
+        denominacao: BANCO SAFRA S/A
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Bancos
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: coord_oferta
+          categoria: Bancos
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '65913436000117'
+        cnpj_raiz: '65913436'
+        denominacao: SAFRA ASSET CORRETORA DE TÍTULOS E VALORES MOBILIÁRIOS S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: coord_oferta
+          categoria: null
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: 01638542000157
+        cnpj_raiz: 01638542
+        denominacao: SAFRA DISTRIBUIDORA DE TÍTULOS E VALORES MOBILIÁRIOS LTDA.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: 03323840000183
+        cnpj_raiz: 03323840
+        denominacao: BANCO ALFA S.A.
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS COMERCIAIS
+          situacao: CANCELADA
+      - cnpj: '17167412000113'
+        cnpj_raiz: '17167412'
+        denominacao: FINANCEIRA ALFA S.A.- C.F.I
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: CANCELADA
+      - cnpj: '62063177000194'
+        cnpj_raiz: '62063177'
+        denominacao: SAFRA LEASING SA ARRENDAMENTO  MERCANTIL
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Arrendamento Mercantil
+          situacao: CANCELADA
+        - cadastro: cia_aberta
+          categoria: Categoria B
+          situacao: CANCELADA
+      banco_j_safra:
+      - cnpj: '62178421000164'
+        cnpj_raiz: '62178421'
+        denominacao: ALFA CORRETORA DE CAMBIO E VALORES MOBILIARIOS S.A
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+        - cadastro: coord_oferta
+          categoria: null
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '60770336000165'
+        cnpj_raiz: '60770336'
+        denominacao: BANCO ALFA DE INVESTIMENTO S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS DE INVESTIMENTOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '03017677000120'
+        cnpj_raiz: '03017677'
+        denominacao: BANCO J. SAFRA S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS DE INVESTIMENTOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '58160789000128'
+        cnpj_raiz: '58160789'
+        denominacao: BANCO SAFRA S/A
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Bancos
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: coord_oferta
+          categoria: Bancos
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '65913436000117'
+        cnpj_raiz: '65913436'
+        denominacao: SAFRA ASSET CORRETORA DE TÍTULOS E VALORES MOBILIÁRIOS S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: coord_oferta
+          categoria: null
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: 01638542000157
+        cnpj_raiz: 01638542
+        denominacao: SAFRA DISTRIBUIDORA DE TÍTULOS E VALORES MOBILIÁRIOS LTDA.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: 03323840000183
+        cnpj_raiz: 03323840
+        denominacao: BANCO ALFA S.A.
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS COMERCIAIS
+          situacao: CANCELADA
+      - cnpj: '17167412000113'
+        cnpj_raiz: '17167412'
+        denominacao: FINANCEIRA ALFA S.A.- C.F.I
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: CANCELADA
+      - cnpj: '62063177000194'
+        cnpj_raiz: '62063177'
+        denominacao: SAFRA LEASING SA ARRENDAMENTO  MERCANTIL
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Arrendamento Mercantil
+          situacao: CANCELADA
+        - cadastro: cia_aberta
+          categoria: Categoria B
+          situacao: CANCELADA
+      seguradora_safra: []
+      previdencia_safra: []
+      asset_safra:
+      - cnpj: '65913436000117'
+        cnpj_raiz: '65913436'
+        denominacao: SAFRA ASSET CORRETORA DE TÍTULOS E VALORES MOBILIÁRIOS S.A.
+        origem: nome
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: coord_oferta
+          categoria: null
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '11120589000188'
+        cnpj_raiz: '11120589'
+        denominacao: SAFRA GESTÃO DE RECURSOS LTDA
+        origem: nome
+        ativo: true
+        no_mapa: false
+        aprovado: false
+        registros:
+        - cadastro: adm_cart_pj
+          categoria: Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '62180047000131'
+        cnpj_raiz: '62180047'
+        denominacao: SAFRA ASSET MANAGEMENT LTDA.
+        origem: nome
+        ativo: false
+        no_mapa: false
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: Gestor de Carteira
+          situacao: CANCELADA
+      - cnpj: 06947853000111
+        cnpj_raiz: 06947853
+        denominacao: SAFRA SERVIÇOS DE ADMINISTRAÇÃO FIDUCIÁRIA LTDA.
+        origem: nome
+        ativo: false
+        no_mapa: false
+        aprovado: false
+        registros:
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário
+          situacao: CANCELADA
+      dtvm_safra:
+      - cnpj: 01638542000157
+        cnpj_raiz: 01638542
+        denominacao: SAFRA DISTRIBUIDORA DE TÍTULOS E VALORES MOBILIÁRIOS LTDA.
+        origem: nome
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '58497728000150'
+        cnpj_raiz: '58497728'
+        denominacao: BOASAFRA DTVM S/A
+        origem: nome
+        ativo: false
+        no_mapa: false
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: CANCELADA
+      corretora_safra:
+      - cnpj: 07256659000152
+        cnpj_raiz: 07256659
+        denominacao: J. SAFRA CORRETORA DE VALORES E CÂMBIO LTDA.
+        origem: nome
+        ativo: false
+        no_mapa: false
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: CANCELADA
+      - cnpj: '60783503000102'
+        cnpj_raiz: '60783503'
+        denominacao: SAFRA CORRETORA DE VALORES E CÂMBIO LTDA.
+        origem: nome
+        ativo: false
+        no_mapa: false
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+      banco_alfa:
+      - cnpj: '62178421000164'
+        cnpj_raiz: '62178421'
+        denominacao: ALFA CORRETORA DE CAMBIO E VALORES MOBILIARIOS S.A
+        origem: nome
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+        - cadastro: coord_oferta
+          categoria: null
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '60770336000165'
+        cnpj_raiz: '60770336'
+        denominacao: BANCO ALFA DE INVESTIMENTO S.A.
+        origem: nome
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS DE INVESTIMENTOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: 03323840000183
+        cnpj_raiz: 03323840
+        denominacao: BANCO ALFA S.A.
+        origem: nome
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS COMERCIAIS
+          situacao: CANCELADA
+      - cnpj: '17167412000113'
+        cnpj_raiz: '17167412'
+        denominacao: FINANCEIRA ALFA S.A.- C.F.I
+        origem: nome
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: CANCELADA
+    pares:
+      itau_unibanco:
+      - cnpj: '61384004000105'
+        cnpj_raiz: '61384004'
+        denominacao: AVENUE SECURITIES BANCO DE INVESTIMENTO S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS DE INVESTIMENTOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+      - cnpj: '60394079000104'
+        cnpj_raiz: '60394079'
+        denominacao: BANCO ITAUBANK S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário
+          situacao: CANCELADA
+      - cnpj: '17192451000170'
+        cnpj_raiz: '17192451'
+        denominacao: BANCO ITAUCARD S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário
+          situacao: CANCELADA
+      - cnpj: '61190658000106'
+        cnpj_raiz: '61190658'
+        denominacao: BANCO ITAÚ VEÍCULOS S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '65654303000173'
+        cnpj_raiz: '65654303'
+        denominacao: DIBENS LEASING S.A.- ARREND. MERCANTIL
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria B
+          situacao: ATIVO
+      - cnpj: '31749596000150'
+        cnpj_raiz: '31749596'
+        denominacao: IDEAL CORRETORA DE TÍTULOS E VALORES MOBILIÁRIOS S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '62418140000131'
+        cnpj_raiz: '62418140'
+        denominacao: INTRAG DTVM LTDA.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '61194353000164'
+        cnpj_raiz: '61194353'
+        denominacao: ITAU CORRETORA DE VALORES SA
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Gestor de Carteira
+          situacao: CANCELADA
+        - cadastro: coord_oferta
+          categoria: null
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '60701190000104'
+        cnpj_raiz: '60701190'
+        denominacao: ITAU UNIBANCO S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Bancos
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: coord_oferta
+          categoria: Bancos
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '60872504000123'
+        cnpj_raiz: '60872504'
+        denominacao: ITAÚ UNIBANCO HOLDING S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Bancos
+          situacao: CANCELADA
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: ATIVO
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+      - cnpj: '61182408000116'
+        cnpj_raiz: '61182408'
+        denominacao: BANCO INVESTCRED UNIBANCO S.A.
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: CANCELADA
+      - cnpj: 01425787000104
+        cnpj_raiz: 01425787
+        denominacao: REDECARD S/A
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: CANCELADA
+      bradesco:
+      - cnpj: '74014747000135'
+        cnpj_raiz: '74014747'
+        denominacao: AGORA CTVM S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+      - cnpj: 06271464000119
+        cnpj_raiz: '06271464'
+        denominacao: BANCO BRADESCO BBI S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Bancos
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+        - cadastro: coord_oferta
+          categoria: Bancos
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '60746948000112'
+        cnpj_raiz: '60746948'
+        denominacao: BANCO BRADESCO S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: ATIVO
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '27098060000145'
+        cnpj_raiz: '27098060'
+        denominacao: BANCO DIGIO S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: CANCELADA
+      - cnpj: '33254319000100'
+        cnpj_raiz: '33254319'
+        denominacao: BANCO LOSANGO S.A. - BANCO MÚLTIPLO
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS DE INVESTIMENTOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+      - cnpj: 07299480000182
+        cnpj_raiz: 07299480
+        denominacao: BEC - DISTRIBUIDORA DE TÍTULOS E VALORES MOBILIÁRIOS LTDA.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+      - cnpj: '00066670000100'
+        cnpj_raiz: '00066670'
+        denominacao: BEM - DISTRIBUIDORA DE TITULOS E VALORES MOBILIARIOS LTDA.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '47509120000182'
+        cnpj_raiz: '47509120'
+        denominacao: BRADESCO LEASING S.A. - ARRENDAMENTO MERCANTIL
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Arrendamento Mercantil
+          situacao: CANCELADA
+        - cadastro: cia_aberta
+          categoria: Categoria B
+          situacao: ATIVO
+      - cnpj: '61855045000132'
+        cnpj_raiz: '61855045'
+        denominacao: BRADESCO S/A CTVM
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+      - cnpj: 01701201000189
+        cnpj_raiz: '01701201'
+        denominacao: KIRTON BANK S.A. - BANCO MÚLTIPLO
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: CANCELADA
+      - cnpj: 03384738000198
+        cnpj_raiz: 03384738
+        denominacao: TIVIO CAPITAL DISTRIBUIDORA DE TITULOS E VALORES MOBILIARIOS
+          S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '33147315000115'
+        cnpj_raiz: '33147315'
+        denominacao: BANCO BRADESCO BERJ S.A.
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+      - cnpj: '91884981000132'
+        cnpj_raiz: '91884981'
+        denominacao: BANCO JOHN DEERE S.A.
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS SEM CARTEIRA DE INVESTIMENTO
+          situacao: CANCELADA
+      - cnpj: '58229246000110'
+        cnpj_raiz: '58229246'
+        denominacao: BRADESCO-KIRTON CORRETORA DE CÂMBIO S.A.
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário
+          situacao: CANCELADA
+      santander_brasil:
+      - cnpj: '10866788000177'
+        cnpj_raiz: '10866788'
+        denominacao: BANCO DE PERNAMBUCO S.A. - BANDEPE
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Bancos
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+      - cnpj: '62307848000115'
+        cnpj_raiz: '62307848'
+        denominacao: BANCO RCI BRASIL S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria B
+          situacao: ATIVO
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: CANCELADA
+      - cnpj: '90400888000142'
+        cnpj_raiz: '90400888'
+        denominacao: BANCO SANTANDER (BRASIL) S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: ATIVO
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: coord_oferta
+          categoria: Bancos
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '29162769000198'
+        cnpj_raiz: '29162769'
+        denominacao: SANTANDER CORRETORA DE TÍTULOS E VALORES MOBILIARIOS S/A
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: 03502968000104
+        cnpj_raiz: 03502968
+        denominacao: SANTANDER DISTRIBUIDORA DE TÍTULOS E VALORES MOBILIÁRIOS S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '51014223000149'
+        cnpj_raiz: '51014223'
+        denominacao: SANTANDER INSTITUCIONAL CORRETORA DE CÂMBIO VALORES MOBILIÁRIOS
+          S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+        - cadastro: coord_oferta
+          categoria: null
+          situacao: CANCELADA
+      - cnpj: '10440482000154'
+        cnpj_raiz: '10440482'
+        denominacao: GETNET ADQUIRÊNCIA E SERVIÇOS PARA MEIOS DE PAGAMENTO S.A.
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: CANCELADA
+      - cnpj: '47193149000106'
+        cnpj_raiz: '47193149'
+        denominacao: SANTANDER LEASING S.A. ARRENDAMENTO MERCANTIL
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Arrendamento Mercantil
+          situacao: CANCELADA
+        - cadastro: cia_aberta
+          categoria: Categoria B
+          situacao: CANCELADA
+      btg_pactual:
+      - cnpj: '30306294000145'
+        cnpj_raiz: '30306294'
+        denominacao: BANCO BTG PACTUAL S/A
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: ATIVO
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Gestor de Carteira
+          situacao: CANCELADA
+        - cadastro: coord_oferta
+          categoria: Bancos
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '59285411000113'
+        cnpj_raiz: '59285411'
+        denominacao: BANCO PAN SA
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS SEM CARTEIRA DE INVESTIMENTO
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+      - cnpj: '29650082000100'
+        cnpj_raiz: '29650082'
+        denominacao: BTG PACTUAL ASSET MANAGEMENT S/A DTVM
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '43815158000122'
+        cnpj_raiz: '43815158'
+        denominacao: BTG PACTUAL CTVM S/A
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: CORRETORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '59281253000123'
+        cnpj_raiz: '59281253'
+        denominacao: BTG PACTUAL SERVIÇOS FINANCEIROS S/A DTVM
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Arrendamento Mercantil
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '34711571000156'
+        cnpj_raiz: '34711571'
+        denominacao: VITREO DISTRIBUIDORA DE TÍTULOS E VALORES MOBILIÁRIOS S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '76543115000194'
+        cnpj_raiz: '76543115'
+        denominacao: BANCO BAMERINDUS BRASIL SA
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Bancos
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+      - cnpj: '15124464000187'
+        cnpj_raiz: '15124464'
+        denominacao: BANCO BESA SA
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS COM CARTEIRA DE INVESTIMENTO
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+      - cnpj: '17157777000167'
+        cnpj_raiz: '17157777'
+        denominacao: BANCO NACIONAL S.A. - EM LIQUIDAÇÃO EXTRAJUDICIAL
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+      - cnpj: '33222241000134'
+        cnpj_raiz: '33222241'
+        denominacao: BCO NACIONAL INVS SA
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Bancos
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: BANCOS DE INVESTIMENTOS
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+      - cnpj: 02682287000102
+        cnpj_raiz: 02682287
+        denominacao: PAN FINANCEIRA S.A. - CRÉDITO, FINANCIAMENTO E INVESTIMENTO
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria B
+          situacao: CANCELADA
+      banco_do_brasil:
+      - cnpj: 00000000000191
+        cnpj_raiz: '00000000'
+        denominacao: BANCO DO BRASIL S.A.
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Categoria A
+          situacao: ATIVO
+        - cadastro: intermed
+          categoria: BANCOS MÚLTIPLOS SEM CARTEIRA DE INVESTIMENTO
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+      - cnpj: '30822936000169'
+        cnpj_raiz: '30822936'
+        denominacao: BB GESTAO DE RECURSOS DTVM S.A
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: intermed
+          categoria: DISTRIBUIDORAS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: Administrador Fiduciário e Gestor de Carteira
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '24933830000130'
+        cnpj_raiz: '24933830'
+        denominacao: BB-BI
+        origem: identificador
+        ativo: true
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: intermed
+          categoria: BANCOS DE INVESTIMENTOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: CUSTODIANTES DE VALORES MOBILIÁRIOS
+          situacao: EM FUNCIONAMENTO NORMAL
+        - cadastro: intermed
+          categoria: ESCRITURADORES DE VALORES MOBILIÁRIOS
+          situacao: CANCELADA
+        - cadastro: adm_cart_pj
+          categoria: null
+          situacao: CANCELADA
+        - cadastro: coord_oferta
+          categoria: null
+          situacao: EM FUNCIONAMENTO NORMAL
+      - cnpj: '31546476000156'
+        cnpj_raiz: '31546476'
+        denominacao: BB-LEASING SA ARRENDAMENTO MERCANTIL
+        origem: identificador
+        ativo: false
+        no_mapa: true
+        aprovado: false
+        registros:
+        - cadastro: cia_aberta
+          categoria: Arrendamento Mercantil
+          situacao: CANCELADA

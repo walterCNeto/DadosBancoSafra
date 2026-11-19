@@ -3,6 +3,9 @@
 # REGRA: a marcacao nas tabelas silver (colunas `grupo` e `is_safra`) usa SOMENTE
 # identificadores (cnpj_raiz, cnpj, codigo_conglomerado_*), nunca o nome.
 #
+# "busca_nome_cvm" (opcional) sao os termos usados no cadastro da CVM (`resolver-entidades`
+# sugere CNPJs CVM em `cvm.sugestoes`, so para revisao; ver README); sem ele vale "busca_nome".
+#
 # "busca_nome" so e usado por `safra-dados resolver-entidades`:
 #   - entidades COM identificador conhecido sao confirmadas por ele no
 #     IfDataCadastro (status "confirmado") e ganham os CNPJs do conglomerado;
@@ -43,6 +46,12 @@ grupos:
         descricao: "Safra Asset Management (gestora de recursos)"
         cnpj_raiz: null
         busca_nome: ["safra asset", "j. safra asset"]
+        busca_nome_cvm: ["safra asset", "safra gestao", "safra servicos de administracao fiduciaria"]
+
+      dtvm_safra:
+        descricao: "Safra Distribuidora de Titulos e Valores Mobiliarios (DTVM)"
+        cnpj_raiz: null
+        busca_nome: ["safra distribuidora", "safra dtvm"]
 
       corretora_safra:
         descricao: "Safra Corretora de Valores e Cambio"
@@ -53,6 +62,7 @@ grupos:
         descricao: "Banco Alfa (ligado ao grupo Safra)"
         cnpj_raiz: null
         busca_nome: ["alfa"]
+        busca_nome_cvm: ["banco alfa", "alfa corretora", "financeira alfa", "alfa arrendamento"]
 
   pares:
     descricao: "Pares para comparacao (grandes bancos)"

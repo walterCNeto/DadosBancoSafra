@@ -11,7 +11,7 @@ Bloco 1 (+ correcoes do 1.1) cobre:
 - Camadas bronze (arquivo bruto + `manifest.jsonl`) e silver (parquet), com
   checkpoint incremental por fonte.
 
-O Bloco 2 (BCB complementar) acrescenta os conectores abaixo. CVM, SUSEP e a camada gold (`duckdb`) ficam para um bloco seguinte.
+O Bloco 2 (BCB complementar) e o Bloco 3 (CVM) acrescentam os conectores abaixo. SUSEP e a camada gold (`duckdb`) ficam para um bloco seguinte.
 
 ## Requisitos
 
@@ -81,6 +81,14 @@ data\
 | `bcb.estban` | arquivos em `bcb.gov.br/content/estatisticas/estatistica_bancaria_estban` (**nem CKAN nem Olinda**) | formato longo (verbete/saldo), niveis municipio e agencia |
 | `bcb.sgs` | `api.bcb.gov.br` (**nao e Olinda**) | Selic meta 432, IPCA 433, dolar 1, CDI 12 |
 
+| `cvm.cadastros` | CKAN CVM: `cia_aberta-cad`, `intermed-cad`, `adm_cart-cad`, `coord_oferta-cad` | instantaneo (data-base = mes da coleta); silver completo |
+| `cvm.fundos_cad` | CKAN `fi-cad` (`registro_fundo_classe.zip` pos-RCVM 175 + `cad_fi.csv` legado) | instantaneo; so fundos cujo administrador ou gestor e do mapa (safra/pares) |
+| `cvm.fundos_informe` | CKAN `fi-doc-inf_diario` | mensal; so fundos do universo acima; exige `cvm.fundos_cad` antes |
+| `cvm.fundos_cda` | CKAN `fi-doc-cda` | mensal; idem; coluna `bloco` (fi_BLC_1..8, fi_PL, fie, ...) |
+| `cvm.ofertas` | CKAN `oferta-distrib` | instantaneo; ofertas em que o grupo e emissor ou coordenador lider (por CNPJ) |
+| `cvm.dfp`, `cvm.itr` | CKAN `cia_aberta-doc-dfp` / `-itr` | anual (data-base `AAAA`); `documentos`, `demonstracoes` (formato longo) e `composicao_capital` |
+| `cvm.fre`, `cvm.ipe` | CKAN `cia_aberta-doc-fre` / `-ipe` | anual; so `documentos` (metadados/links), sem tabelas de detalhe do FRE |
+
 Todas as chamadas Olinda usam `olinda_url`. As tabelas silver de fontes por instituicao
 trazem `grupo`/`is_safra`.
 
@@ -97,6 +105,12 @@ safra-dados ingest --fonte bcb.sgs --desde 2026-10
 
 # resolve os CNPJs/codigos de conglomerado do grupo Safra via IfDataCadastro
 safra-dados resolver-entidades
+
+# Bloco 3 (CVM): a ordem de `all` ja respeita a dependencia fundos_cad -> informe/cda
+safra-dados ingest --fonte cvm.cadastros
+safra-dados ingest --fonte cvm.fundos_cad
+safra-dados ingest --fonte cvm.fundos_informe --desde 2024-01
+safra-dados ingest --fonte cvm.fundos_cda --desde 2024-01
 
 # status por fonte: ultima data-base, numero de arquivos, falhas
 safra-dados status
@@ -140,3 +154,35 @@ BCB e sao pulados por padrao; para roda-los: `pytest -m rede`.
   um mes so aparece apos a publicacao; meses ausentes sao simplesmente ignorados no
   `discover`. (e) SGS 404 "Value(s) not found" (mes corrente sem valor, ex.: IPCA) conta
   como serie vazia, nao como falha.
+
+## Bloco 3 - CVM (dados.cvm.gov.br)
+
+- **Descoberta por CKAN**: todo recurso vem de `package_show` (`ckan_base_url` em
+  `settings.yaml`), sem URL fixa de arquivo. Unica deducao: o CKAN so lista os ultimos ~12
+  meses de informe diario/CDA; os meses anteriores (ate 2024-01 e antes) saem do template do
+  nome de um recurso listado (`...AAAAMM.zip`) e sao confirmados por HEAD.
+- **Silver por tabela**: `silver\<fonte>\<tabela>\<data_base>.parquet` (informe e CDA:
+  `silver\<fonte>\<AAAAMM>.parquet`). Colunas em minusculas, CNPJ so com digitos, datas `Date`,
+  numericos `Float64` onde o layout e conhecido (cast que perderia valor e abandonado).
+  `grupo`/`is_safra` por CNPJ, com a regra de sempre (nome nunca marca) e **CNPJ placeholder**
+  (filial `0000`, ex. `00.000.000/0000-00` de estrangeiras no IPE) ignorado, para nao virar BB.
+- **Resolvedor + CVM**: `safra-dados resolver-entidades` tambem consulta os cadastros da CVM e grava
+  em `entidades_resolvidas.yaml` a secao `cvm.sugestoes.<grupo>.<entidade>`: registros por CNPJ raiz
+  (conglomerado ja resolvido) ou por nome (`busca_nome_cvm` em `entidades.yaml`). Cada item traz
+  `ativo`, `no_mapa` (ja marcado via IF.data/config) e `aprovado: false`. **Revise e ponha
+  `aprovado: true`** nos que devem entrar no mapa (ex.: Safra Gestao de Recursos, `11120589`); so
+  esses passam a marcar linhas e a puxar fundos. `--sem-cvm` pula a consulta e preserva a secao.
+- **Fundos**: o cadastro e filtrado por administrador **ou** gestor no mapa; classes e subclasses
+  seguem o fundo (`grupo` = `safra` se qualquer dos dois e Safra). Informe e CDA so guardam esses
+  fundos (universo lido do silver de `cvm_fundos_cad`).
+- `ingest` agora continua para as demais fontes se uma falhar na descoberta e termina com codigo 1.
+
+### Limitacoes (Bloco 3)
+
+- O pacote CKAN `emissores` so tem planilhas `.ods`; o cadastro de emissores aqui e o de companhias
+  abertas. Nao ha entidade Safra ativa como companhia aberta: Banco Safra, Banco Alfa de Investimento,
+  Safra Leasing etc. constam como `CANCELADA`, entao DFP/ITR/FRE/IPE ficam so com os **pares**.
+- Ofertas: coordenadores que nao sejam o lider (`Grupo_Coordenador`) e emissores sem CNPJ (ofertas antigas,
+  so nome) nao marcam nada. Fundos do grupo como emissores (FIDC etc.) nao entram.
+- DFP/ITR: `parecer` do auditor nao e carregado; FRE so tem o indice de documentos.
+- O arquivo e baixado inteiro a cada execucao para calcular o sha256 (padrao dos conectores).

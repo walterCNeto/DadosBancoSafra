@@ -72,3 +72,56 @@ fontes:
       1: dolar_venda
       12: cdi
     desde: "2024-01"
+
+  # ---- Bloco 3 (CVM, dados.cvm.gov.br) ----
+  # Recursos sempre descobertos por package_show da API CKAN (sem URL fixa de arquivo).
+  cvm_cadastros:
+    ckan_base_url: &cvm_ckan "https://dados.cvm.gov.br/api/3/action"
+    # companhias abertas (tambem e o cadastro de emissores; o pacote "emissores" so tem .ods),
+    # intermediarios, administradores de carteira e coordenadores de oferta
+    pacotes:
+      cia_aberta: "cia_aberta-cad"
+      intermed: "intermed-cad"
+      adm_cart: "adm_cart-cad"
+      coord_oferta: "coord_oferta-cad"
+    desde: "2024-01"   # instantaneo; data_base = mes da coleta
+
+  cvm_fundos_cad:
+    ckan_base_url: *cvm_ckan
+    pacote: "fi-cad"   # registro_fundo_classe.zip (pos-RCVM 175) e cad_fi.csv (legado)
+    desde: "2024-01"   # instantaneo
+
+  cvm_fundos_informe:
+    ckan_base_url: *cvm_ckan
+    pacote: "fi-doc-inf_diario"
+    desde: "2024-01"
+
+  cvm_fundos_cda:
+    ckan_base_url: *cvm_ckan
+    pacote: "fi-doc-cda"
+    desde: "2024-01"
+
+  cvm_ofertas:
+    ckan_base_url: *cvm_ckan
+    pacote: "oferta-distrib"
+    desde: "2024-01"   # instantaneo
+
+  cvm_dfp:
+    ckan_base_url: *cvm_ckan
+    pacote: "cia_aberta-doc-dfp"
+    desde: "2021-01"   # anual (data_base = AAAA)
+
+  cvm_itr:
+    ckan_base_url: *cvm_ckan
+    pacote: "cia_aberta-doc-itr"
+    desde: "2021-01"
+
+  cvm_fre:
+    ckan_base_url: *cvm_ckan
+    pacote: "cia_aberta-doc-fre"
+    desde: "2021-01"
+
+  cvm_ipe:
+    ckan_base_url: *cvm_ckan
+    pacote: "cia_aberta-doc-ipe"
+    desde: "2021-01"

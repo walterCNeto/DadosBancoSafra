@@ -17,6 +17,10 @@ from .connectors.bcb_sgs import BcbSgsConnector
 from .connectors.bcb_tarifas import BcbTarifasConnector
 from .connectors.bcb_taxas_juros import BcbTaxasJurosConnector
 from .connectors.bcb_unicad import BcbUnicadConnector
+from .connectors.cvm_cadastros import CvmCadastrosConnector
+from .connectors.cvm_cia_aberta import CvmDfpConnector, CvmFreConnector, CvmIpeConnector, CvmItrConnector
+from .connectors.cvm_fundos import CvmFundosCadConnector, CvmFundosCdaConnector, CvmFundosInformeConnector
+from .connectors.cvm_ofertas import CvmOfertasConnector
 from .manifest import Checkpoint, load_checkpoint, read_entries, save_checkpoint, ultimas_por_url
 from .resolver import resolver_entidades
 
@@ -32,6 +36,17 @@ _FONTES: dict[str, tuple[str, type[Connector]]] = {
     "bcb.estban": ("bcb_estban", BcbEstbanConnector),
     "bcb.unicad": ("bcb_unicad", BcbUnicadConnector),
     "bcb.sgs": ("bcb_sgs", BcbSgsConnector),
+    # Bloco 3 (CVM). A ordem importa para `--fonte all`: o cadastro de fundos vem antes
+    # do informe diario e do CDA, que filtram pelos fundos do grupo.
+    "cvm.cadastros": ("cvm_cadastros", CvmCadastrosConnector),
+    "cvm.fundos_cad": ("cvm_fundos_cad", CvmFundosCadConnector),
+    "cvm.fundos_informe": ("cvm_fundos_informe", CvmFundosInformeConnector),
+    "cvm.fundos_cda": ("cvm_fundos_cda", CvmFundosCdaConnector),
+    "cvm.ofertas": ("cvm_ofertas", CvmOfertasConnector),
+    "cvm.dfp": ("cvm_dfp", CvmDfpConnector),
+    "cvm.itr": ("cvm_itr", CvmItrConnector),
+    "cvm.fre": ("cvm_fre", CvmFreConnector),
+    "cvm.ipe": ("cvm_ipe", CvmIpeConnector),
 }
 _FONTE_ALIASES = {alias: nome for alias, (nome, _) in _FONTES.items()}
 _CONECTORES = {nome: cls for nome, cls in _FONTES.values()}
@@ -54,13 +69,17 @@ def _resolver_fontes(fonte: str) -> list[str]:
     )
 
 
-def _ingest_fonte(settings: Settings, fonte: str, desde: str, ate: str | None) -> None:
+def _ingest_fonte(settings: Settings, fonte: str, desde: str, ate: str | None) -> list[str]:
+    """Ingere uma fonte e devolve as falhas de descoberta (ex.: CKAN fora do ar)."""
     connector = _build_connector(settings, fonte)
     typer.echo(f"[{fonte}] descobrindo recursos desde {desde}...")
     recursos = connector.discover(desde, ate)
+    falhas = [f"[{fonte}] {f}" for f in getattr(connector, "falhas_discover", [])]
+    for falha in falhas:
+        typer.echo(f"{falha}", err=True)
     if not recursos:
         typer.echo(f"[{fonte}] nenhum recurso encontrado.")
-        return
+        return falhas
 
     por_data_base: dict[str, list] = defaultdict(list)
     for recurso in recursos:
@@ -90,30 +109,40 @@ def _ingest_fonte(settings: Settings, fonte: str, desde: str, ate: str | None) -
             typer.echo(f"[{fonte}] {data_base}: nenhum dado para normalizar (ok={ok}, falha={falha})")
 
     save_checkpoint(checkpoint_path, checkpoint)
+    return falhas
 
 
 @app.command()
 def ingest(
-    fonte: str = typer.Option(..., "--fonte", help="bcb.ifdata | bcb.cosif | bcb.juros | bcb.reclamacoes | bcb.tarifas | bcb.estban | bcb.unicad | bcb.sgs | all"),
+    fonte: str = typer.Option(..., "--fonte", help="bcb.ifdata | bcb.cosif | bcb.juros | bcb.reclamacoes | bcb.tarifas | bcb.estban | bcb.unicad | bcb.sgs | cvm.cadastros | cvm.fundos_cad | cvm.fundos_informe | cvm.fundos_cda | cvm.ofertas | cvm.dfp | cvm.itr | cvm.fre | cvm.ipe | all"),
     desde: str = typer.Option(None, "--desde", help="Data-base inicial, formato AAAA-MM (padrao: config)"),
     ate: str = typer.Option(None, "--ate", help="Data-base final, formato AAAA-MM (padrao: ultima disponivel)"),
 ) -> None:
     """Descobre e baixa os recursos de uma ou mais fontes, e normaliza a silver."""
     settings = load_settings()
+    falhas: list[str] = []
     for fonte_resolvida in _resolver_fontes(fonte):
         desde_fonte = desde or settings.fonte_config(fonte_resolvida).get("desde", "2015-03")
-        _ingest_fonte(settings, fonte_resolvida, desde_fonte, ate)
+        try:
+            falhas += _ingest_fonte(settings, fonte_resolvida, desde_fonte, ate)
+        except (RuntimeError, ValueError) as exc:  # uma fonte com problema nao derruba as demais
+            typer.echo(f"[{fonte_resolvida}] FALHOU: {exc}", err=True)
+            falhas.append(f"[{fonte_resolvida}] {exc}")
+    if falhas:
+        typer.echo(f"{len(falhas)} falha(s) na ingestao:", err=True)
+        raise typer.Exit(code=1)
 
 
 @app.command("resolver-entidades")
 def resolver_entidades_cmd(
     grupo: str = typer.Option(None, "--grupo", help="Grupo de config/entidades.yaml (padrao: todos)"),
     anomes: str = typer.Option(None, "--anomes", help="Data-base AAAAMM para consulta (padrao: ultima disponivel)"),
+    sem_cvm: bool = typer.Option(False, "--sem-cvm", help="Nao consulta os cadastros da CVM (sugestoes de CNPJ CVM)"),
 ) -> None:
     """Busca no IfDataCadastro os CNPJs/codigos de conglomerado do grupo e grava
     config/entidades_resolvidas.yaml para revisao humana."""
     settings = load_settings()
-    resultado = resolver_entidades(settings, grupo=grupo, anomes=anomes)
+    resultado = resolver_entidades(settings, grupo=grupo, anomes=anomes, incluir_cvm=not sem_cvm)
     typer.echo(f"status da consulta: {resultado['status_consulta']}")
     if resultado.get("erro_consulta"):
         typer.echo(f"erro: {resultado['erro_consulta']}")
@@ -125,6 +154,14 @@ def resolver_entidades_cmd(
                 f"  [{nome_grupo}] {nome}: {entrada['status']} (cnpj={entrada.get('cnpj')!r}, "
                 f"cong_prudencial={entrada.get('codigo_conglomerado_prudencial')!r})"
             )
+    cvm = resultado.get("cvm") or {}
+    if cvm:
+        typer.echo(f"sugestoes CVM: {cvm.get('status')}" + (f" ({cvm['erro']})" if cvm.get("erro") else ""))
+        for nome_grupo, por_entidade in (cvm.get("sugestoes") or {}).items():
+            if grupo and nome_grupo != grupo:
+                continue
+            for nome, itens in por_entidade.items():
+                typer.echo(f"  [{nome_grupo}] {nome}: {len(itens)} registro(s) CVM ({sum(1 for i in itens if i['ativo'])} ativos)")
     typer.echo(f"gravado em {settings.entidades_resolvidas_path()}")
 
 

@@ -82,6 +82,21 @@ def extract_single_csv(zip_bytes: bytes) -> tuple[str, bytes]:
         return chosen.filename, zf.read(chosen)
 
 
+def iter_zip_members(zip_bytes: bytes, aceitar=None):
+    """Itera (nome, bytes) dos membros de um zip em memoria, com a mesma protecao
+    contra zip-slip de `extract_single_csv`. `aceitar(nome) -> bool` filtra os membros
+    ANTES de descomprimir (zips da CVM como o ITR trazem membros de >100 MB)."""
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        for info in zf.infolist():
+            name = info.filename
+            if name.startswith("/") or ".." in Path(name).parts:
+                raise ValueError(f"entrada de zip suspeita (zip-slip): {name!r}")
+        for info in zf.infolist():
+            if info.is_dir() or (aceitar is not None and not aceitar(info.filename)):
+                continue
+            yield info.filename, zf.read(info)
+
+
 def write_silver_parquet(df: pl.DataFrame, path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     df.write_parquet(path)
