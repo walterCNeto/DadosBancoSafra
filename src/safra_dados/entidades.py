@@ -112,7 +112,32 @@ def mapa_de_dicts(cfg: dict[str, Any], resolvidas: dict[str, Any] | None) -> Map
             for item in itens or []:
                 if item.get("aprovado"):
                     mapa.adicionar(grupo, item.get("cnpj_raiz"), item.get("cnpj"))
+
+    # sugestoes SUSEP (`susep.sugestoes`): so as aprovadas; marcam por CNPJ (o codigo FIP
+    # nao entra no mapa, e resolvido pelo conector via `fips_susep`)
+    for grupo, por_entidade in ((resolvidas.get("susep") or {}).get("sugestoes") or {}).items():
+        for itens in (por_entidade or {}).values():
+            for item in itens or []:
+                if item.get("aprovado"):
+                    mapa.adicionar(grupo, item.get("cnpj_raiz"), item.get("cnpj"))
     return mapa
+
+
+def fips_susep(resolvidas: dict[str, Any] | None, somente_aprovados: bool) -> dict[str, str]:
+    """codigo FIP (5 digitos) -> grupo, a partir de `susep.sugestoes` do arquivo resolvido.
+    Com `somente_aprovados=True` so itens `aprovado: true` (marcam `grupo`); com False, todos
+    (candidatos: so entram no universo das tabelas grandes, sem marcar `grupo`)."""
+    saida: dict[str, str] = {}
+    for grupo, por_entidade in (((resolvidas or {}).get("susep") or {}).get("sugestoes") or {}).items():
+        for itens in (por_entidade or {}).values():
+            for item in itens or []:
+                fip = str(item.get("codigo_fip") or "").strip()
+                if not fip or (somente_aprovados and not item.get("aprovado")):
+                    continue
+                fip = fip.zfill(5)
+                if fip not in saida or grupo == "safra":
+                    saida[fip] = grupo
+    return saida
 
 
 def carregar_mapa_entidades(settings: Settings) -> MapaEntidades:

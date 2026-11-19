@@ -204,3 +204,31 @@ def test_cvm_documentos_cia_aberta_real(classe):
     ano = datetime.date.today().year - 1
     recursos = _cvm_discover_e_head(c, f"{ano}-01")
     assert all(int(r.data_base) >= ano for r in recursos)
+
+
+# ---------------- Bloco 4 (SUSEP SES e RI Safra): um teste de rede por conector ----------------
+
+@pytest.mark.rede
+def test_susep_ses_real():
+    """Pagina do SES + HEAD no zip e na LISTAEMPRESAS (sem baixar os ~580 MB)."""
+    from safra_dados.connectors.susep_ses import SusepSesConnector
+
+    c = SusepSesConnector(load_settings())
+    recursos = c.discover("2020-01")
+    assert {r.extra["chave"] for r in recursos} == {"lista", "base"}, c.falhas_discover
+    assert len(recursos[0].data_base) == 6
+    lista = next(r for r in recursos if r.extra["chave"] == "lista")
+    assert c._get_client().exists(lista.url)
+
+
+@pytest.mark.rede
+def test_safra_ri_real():
+    """robots.txt + listagens de RI (HTML); nao baixa arquivos. Os arquivos de /data/ sao bloqueados."""
+    from safra_dados.connectors.safra_ri import SafraRiConnector
+
+    c = SafraRiConnector(load_settings())
+    recursos = c.discover("2023-01")
+    docs = [r for r in recursos if r.extra["kind"] == "documento"]
+    assert docs, c.falhas_discover
+    assert {"demonstracoes_ifrs", "pilar3_gir"} <= {r.extra["tipo"] for r in docs}
+    assert all(r.url.startswith("https://www.safra.com.br/") for r in docs)

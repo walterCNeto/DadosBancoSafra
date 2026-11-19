@@ -125,3 +125,23 @@ fontes:
     ckan_base_url: *cvm_ckan
     pacote: "cia_aberta-doc-ipe"
     desde: "2021-01"
+
+  # ---- Bloco 4 (SUSEP e RI Safra) ----
+  susep_ses:
+    # unica URL fixa: a pagina do SES. Os links de BaseCompleta.zip e LISTAEMPRESAS.csv e o
+    # mes de carga (data-base) saem do HTML dela.
+    pagina_url: "https://www2.susep.gov.br/menuestatistica/ses/principal.aspx"
+    desde: "2020-01"   # periodo (damesano) minimo das tabelas silver
+    # tabelas grandes lidas do zip (filtradas por empresa do universo safra/pares)
+    tabelas_grandes: [seguros, provramos, prov, balanco, pl_margem, valores_mov_ramos, uf]
+
+  safra_ri:
+    # RI do Banco Safra: pagina inicial; as demais paginas de RI sao descobertas pelos links
+    # (`/sobre/relacoes-com-investidores...`). robots.txt e respeitado.
+    base_url: "https://www.safra.com.br"
+    pagina_inicial: "/sobre/relacoes-com-investidores.htm"
+    prefixo_paginas: "/sobre/relacoes-com-investidores"
+    desde: "2023-01"
+    intervalo_min_segundos: 2.0   # limite de taxa para o site
+    max_paginas: 12
+    cnpj_emissor: "58160789"

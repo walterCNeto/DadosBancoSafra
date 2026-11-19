@@ -6,6 +6,10 @@
 # "busca_nome_cvm" (opcional) sao os termos usados no cadastro da CVM (`resolver-entidades`
 # sugere CNPJs CVM em `cvm.sugestoes`, so para revisao; ver README); sem ele vale "busca_nome".
 #
+# "busca_nome_susep" (opcional): termos usados contra a LISTAEMPRESAS da SUSEP; `resolver-entidades`
+# grava as sugestoes em `susep.sugestoes.<grupo>.<entidade>` (codigo FIP + CNPJ, `aprovado: false`).
+# Sem a chave, a entidade nao gera sugestoes SUSEP.
+#
 # "busca_nome" so e usado por `safra-dados resolver-entidades`:
 #   - entidades COM identificador conhecido sao confirmadas por ele no
 #     IfDataCadastro (status "confirmado") e ganham os CNPJs do conglomerado;
@@ -36,11 +40,13 @@ grupos:
         descricao: "Safra Seguros / seguradora do conglomerado"
         cnpj_raiz: null
         busca_nome: ["safra seguros", "seguradora safra"]
+        busca_nome_susep: ["safra seguros", "safra capitalizacao", "safra resseguros"]
 
       previdencia_safra:
         descricao: "Safra Vida e Previdencia"
         cnpj_raiz: null
         busca_nome: ["safra vida", "safra previdencia"]
+        busca_nome_susep: ["safra vida", "safra previdencia"]
 
       asset_safra:
         descricao: "Safra Asset Management (gestora de recursos)"
@@ -71,28 +77,33 @@ grupos:
         descricao: "Itau Unibanco"
         cnpj_raiz: null
         busca_nome: ["itau unibanco holding"]
+        busca_nome_susep: ["itau seguros", "itau vida", "itau capitalizacao", "itauseg", "itau unibanco seguros", "itauprev"]
         resolver_por_nome_lider: true
 
       bradesco:
         descricao: "Bradesco"
         cnpj_raiz: null
         busca_nome: ["banco bradesco s.a."]
+        busca_nome_susep: ["bradesco"]
         resolver_por_nome_lider: true
 
       santander_brasil:
         descricao: "Santander Brasil"
         cnpj_raiz: null
         busca_nome: ["banco santander (brasil) s.a."]
+        busca_nome_susep: ["santander"]
         resolver_por_nome_lider: true
 
       btg_pactual:
         descricao: "BTG Pactual"
         cnpj_raiz: null
         busca_nome: ["banco btg pactual s.a."]
+        busca_nome_susep: ["btg pactual"]
         resolver_por_nome_lider: true
 
       banco_do_brasil:
         descricao: "Banco do Brasil"
         cnpj_raiz: null
         busca_nome: ["banco do brasil s.a."]
+        busca_nome_susep: ["brasilseg", "brasilprev", "brasilcap", "bb capitalizacao", "bb seguridade", "alianca do brasil"]
         resolver_por_nome_lider: true

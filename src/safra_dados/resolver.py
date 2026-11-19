@@ -14,6 +14,10 @@ Status por entidade:
                  identificador para entidades.yaml ou marcar `aprovado: true`.
 - nao_encontrado / falha_api.
 
+Sugestoes SUSEP (secao `susep.sugestoes`, so para revisao humana): empresas da LISTAEMPRESAS
+(codigo FIP + CNPJ) que casam por CNPJ raiz ou por `busca_nome_susep`; `aprovado: true` passa a
+marcar linhas (por CNPJ e por FIP nas tabelas do SES).
+
 Sugestoes CVM (secao `cvm.sugestoes`, so para revisao humana): para cada entidade,
 os registros dos cadastros da CVM (companhia aberta, intermediario, administrador de
 carteira, coordenador de oferta) que casam por CNPJ raiz (identificadores ja conhecidos
@@ -30,6 +34,7 @@ import yaml
 from .config import Settings, load_entidades, load_entidades_resolvidas
 from .connectors.bcb_ifdata import BcbIfDataConnector, latest_available_anomes
 from .connectors.cvm_cadastros import CvmCadastrosConnector, linhas_para_busca
+from .connectors.susep_ses import SusepSesConnector, parse_lista_empresas
 from .entidades import mapa_de_dicts, normalizar_identificador, normalizar_nome
 from .http import DownloadError, SafraDadosClient
 from .manifest import now_iso
@@ -206,6 +211,75 @@ def _resolver_cvm(
     }
 
 
+def sugerir_susep(
+    cfg: dict, entrada: dict[str, Any], lista: list[dict], ids_no_mapa: set[str]
+) -> list[dict[str, Any]]:
+    """Empresas da LISTAEMPRESAS da SUSEP candidatas de uma entidade (pura): por CNPJ raiz
+    ja conhecido da entidade/conglomerado ou por `busca_nome_susep`. Sem a chave de busca por
+    nome, so casa por CNPJ raiz."""
+    ids = [cfg.get("cnpj_raiz"), cfg.get("cnpj"), entrada.get("cnpj"), *(entrada.get("cnpjs_relacionados") or [])]
+    raizes = {r for r in (normalizar_identificador(i) for i in ids) if r and len(r) == 8 and r.isdigit()}
+    termos = [t for t in (normalizar_nome(x) for x in (cfg.get("busca_nome_susep") or [])) if t]
+    itens = []
+    for linha in lista:
+        cnpj = linha.get("cnpj") or None
+        raiz = cnpj[:8] if cnpj else None
+        por_id = bool(raiz and raiz in raizes)
+        por_nome = any(t in normalizar_nome(linha.get("nome")) for t in termos)
+        if not (por_id or por_nome):
+            continue
+        itens.append({
+            "codigo_fip": linha["codigo_fip"], "cnpj": cnpj, "cnpj_raiz": raiz, "denominacao": linha.get("nome"),
+            "origem": "+".join(o for o, ok in (("identificador", por_id), ("nome", por_nome)) if ok),
+            "no_mapa": bool(raiz and raiz in ids_no_mapa), "aprovado": False,
+        })
+    return sorted(itens, key=lambda i: (i["denominacao"] or "", i["codigo_fip"]))
+
+
+def _resolver_susep(
+    settings: Settings, grupos_cfg: dict, grupos_res: dict, anterior: dict, lista: list[dict] | None
+) -> dict[str, Any]:
+    """Monta a secao `susep` do YAML resolvido. Em falha, preserva as sugestoes anteriores."""
+    susep_anterior = (anterior or {}).get("susep") or {}
+    erro: str | None = None
+    if lista is None:
+        client = SafraDadosClient(settings.http)
+        try:
+            conector = SusepSesConnector(settings, client=client)
+            info = conector.ler_pagina()
+            resposta = client.get(info["lista_url"])
+            if resposta.status_code != 200:
+                raise RuntimeError(f"LISTAEMPRESAS: HTTP {resposta.status_code}")
+            lista = parse_lista_empresas(resposta.content).to_dicts()
+        except (DownloadError, RuntimeError) as exc:
+            erro = str(exc)
+        finally:
+            client.close()
+    if erro is not None or lista is None:
+        return {**susep_anterior, "status": "falha_api", "erro": erro, "tentado_em": now_iso()}
+
+    ids_no_mapa = set(mapa_de_dicts(load_entidades(settings), {"grupos": grupos_res}).por_identificador)
+    aprovados = {
+        (g, e, i["codigo_fip"])
+        for g, por_ent in (susep_anterior.get("sugestoes") or {}).items()
+        for e, itens in (por_ent or {}).items()
+        for i in itens or [] if i.get("aprovado")
+    }
+    sugestoes = {g: v for g, v in (susep_anterior.get("sugestoes") or {}).items() if g not in grupos_cfg}
+    for nome_grupo, grupo_cfg in grupos_cfg.items():
+        por_entidade = {}
+        for nome, cfg in (grupo_cfg.get("entidades") or {}).items():
+            itens = sugerir_susep(cfg or {}, grupos_res[nome_grupo]["entidades"][nome], lista, ids_no_mapa)
+            for item in itens:
+                item["aprovado"] = (nome_grupo, nome, item["codigo_fip"]) in aprovados
+            por_entidade[nome] = itens
+        sugestoes[nome_grupo] = por_entidade
+    return {
+        "gerado_em": now_iso(), "status": "ok", "erro": None,
+        "fonte": "susep: LISTAEMPRESAS.csv (pagina do SES)", "sugestoes": sugestoes,
+    }
+
+
 def resolver_entidades(
     settings: Settings,
     grupo: str | None = None,
@@ -213,6 +287,8 @@ def resolver_entidades(
     cadastro: list[dict] | None = None,
     incluir_cvm: bool = True,
     cadastro_cvm: list[dict] | None = None,
+    incluir_susep: bool = True,
+    lista_susep: list[dict] | None = None,
 ) -> dict[str, Any]:
     """Resolve um grupo (ou todos, se `grupo` for None) e grava o YAML resolvido."""
     anomes = anomes or latest_available_anomes()
@@ -249,6 +325,10 @@ def resolver_entidades(
         _resolver_cvm(settings, grupos_cfg, grupos_res, load_entidades_resolvidas(settings) or {}, cadastro_cvm)
         if incluir_cvm else ((load_entidades_resolvidas(settings) or {}).get("cvm"))
     )
+    susep = (
+        _resolver_susep(settings, grupos_cfg, grupos_res, load_entidades_resolvidas(settings) or {}, lista_susep)
+        if incluir_susep else ((load_entidades_resolvidas(settings) or {}).get("susep"))
+    )
     resultado = {
         "gerado_em": now_iso(),
         "anomes_consultado": anomes,
@@ -259,6 +339,8 @@ def resolver_entidades(
     }
     if cvm is not None:
         resultado["cvm"] = cvm
+    if susep is not None:
+        resultado["susep"] = susep
 
     out_path = settings.entidades_resolvidas_path()
     out_path.parent.mkdir(parents=True, exist_ok=True)

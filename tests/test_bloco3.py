@@ -511,7 +511,7 @@ def test_resolver_grava_secao_cvm_preserva_aprovado_e_so_aprovado_marca(settings
     ent = {"grupos": {"safra": {"cnpj_raiz": "58160789", "entidades": {
         "gestora": {"cnpj_raiz": None, "busca_nome_cvm": ["safra gestao"]}}}}}
     st = settings_factory(ent, entidades_resolvidas=None, fontes=FONTES)
-    res = resolver_entidades(st, anomes="202606", cadastro=[], cadastro_cvm=LINHAS_CVM)
+    res = resolver_entidades(st, anomes="202606", cadastro=[], cadastro_cvm=LINHAS_CVM, incluir_susep=False)
     assert res["cvm"]["status"] == "ok"
     item = res["cvm"]["sugestoes"]["safra"]["gestora"][0]
     assert item["cnpj_raiz"] == "11120589" and item["aprovado"] is False
@@ -526,10 +526,10 @@ def test_resolver_grava_secao_cvm_preserva_aprovado_e_so_aprovado_marca(settings
     assert carregar_mapa_entidades(st).por_identificador["11120589"] == "safra"
 
     # nova execucao preserva a aprovacao
-    res2 = resolver_entidades(st, anomes="202606", cadastro=[], cadastro_cvm=LINHAS_CVM)
+    res2 = resolver_entidades(st, anomes="202606", cadastro=[], cadastro_cvm=LINHAS_CVM, incluir_susep=False)
     assert res2["cvm"]["sugestoes"]["safra"]["gestora"][0]["aprovado"] is True
     # --sem-cvm preserva a secao anterior
-    res3 = resolver_entidades(st, anomes="202606", cadastro=[], incluir_cvm=False)
+    res3 = resolver_entidades(st, anomes="202606", cadastro=[], incluir_cvm=False, incluir_susep=False)
     assert res3["cvm"]["sugestoes"]["safra"]["gestora"][0]["aprovado"] is True
 
 

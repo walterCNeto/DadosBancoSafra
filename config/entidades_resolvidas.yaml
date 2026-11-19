@@ -1,4 +1,4 @@
-gerado_em: '2026-11-19T14:13:27+00:00'
+gerado_em: '2026-11-19T15:27:27+00:00'
 anomes_consultado: '202606'
 fonte: bcb_ifdata.IfDataCadastro
 status_consulta: ok
@@ -808,7 +808,7 @@ cvm:
         origem: nome
         ativo: true
         no_mapa: false
-        aprovado: false
+        aprovado: true
         registros:
         - cadastro: adm_cart_pj
           categoria: Gestor de Carteira
@@ -1839,3 +1839,178 @@ cvm:
         - cadastro: cia_aberta
           categoria: Arrendamento Mercantil
           situacao: CANCELADA
+susep:
+  gerado_em: '2026-11-19T15:27:27+00:00'
+  status: ok
+  erro: null
+  fonte: 'susep: LISTAEMPRESAS.csv (pagina do SES)'
+  sugestoes:
+    safra:
+      banco_safra: []
+      banco_j_safra: []
+      seguradora_safra:
+      - codigo_fip: '01627'
+        cnpj: 06109373000181
+        cnpj_raiz: 06109373
+        denominacao: SAFRA SEGUROS GERAIS S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      previdencia_safra:
+      - codigo_fip: 09938
+        cnpj: '30902142000105'
+        cnpj_raiz: '30902142'
+        denominacao: SAFRA VIDA E PREVIDÊNCIA S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      asset_safra: []
+      dtvm_safra: []
+      corretora_safra: []
+      banco_alfa: []
+    pares:
+      itau_unibanco:
+      - codigo_fip: 03182
+        cnpj: 08816067000100
+        cnpj_raiz: 08816067
+        denominacao: ITAU SEGUROS DE AUTO E RESIDÊNCIA S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: '05321'
+        cnpj: '61557039000107'
+        cnpj_raiz: '61557039'
+        denominacao: ITAU SEGUROS S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: 06912
+        cnpj: '29741030000130'
+        cnpj_raiz: '29741030'
+        denominacao: ITAUSEG SEGURADORA S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: 05096
+        cnpj: '92661388000190'
+        cnpj_raiz: '92661388'
+        denominacao: ITAÚ VIDA E PREVIDÊNCIA S/A
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      bradesco:
+      - codigo_fip: '05312'
+        cnpj: '92682038000100'
+        cnpj_raiz: '92682038'
+        denominacao: BRADESCO AUTO/RE COMPANHIA DE SEGUROS
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: '23566'
+        cnpj: '33010851000174'
+        cnpj_raiz: '33010851'
+        denominacao: BRADESCO CAPITALIZAÇÃO S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: '05444'
+        cnpj: '33055146000193'
+        cnpj_raiz: '33055146'
+        denominacao: BRADESCO SEGUROS S.A
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: 06866
+        cnpj: '51990695000137'
+        cnpj_raiz: '51990695'
+        denominacao: BRADESCO VIDA E PREVIDÊNCIA S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      santander_brasil:
+      - codigo_fip: 01589
+        cnpj: '30617319000121'
+        cnpj_raiz: '30617319'
+        denominacao: SANTANDER AUTO S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: '29319'
+        cnpj: 03209092000102
+        cnpj_raiz: 03209092
+        denominacao: SANTANDER CAPITALIZAÇÃO S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: '05070'
+        cnpj: '87376109000106'
+        cnpj_raiz: '87376109'
+        denominacao: ZURICH SANTANDER BRASIL SEGUROS E PREVIDÊNCIA S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: '06564'
+        cnpj: 06136920000118
+        cnpj_raiz: 06136920
+        denominacao: ZURICH SANTANDER BRASIL SEGUROS S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      btg_pactual:
+      - codigo_fip: '74934'
+        cnpj: '22256195000178'
+        cnpj_raiz: '22256195'
+        denominacao: BTG PACTUAL CORRETORA DE RESSEGUROS LTDA.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: '02305'
+        cnpj: '32724962000180'
+        cnpj_raiz: '32724962'
+        denominacao: BTG PACTUAL SEGUROS S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: '37052'
+        cnpj: '15421859000141'
+        cnpj_raiz: '15421859'
+        denominacao: BTG Pactual Resseguradora S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: 02682
+        cnpj: '19449767000120'
+        cnpj_raiz: '19449767'
+        denominacao: BTG Pactual Vida e Previdência S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      banco_do_brasil:
+      - codigo_fip: '06211'
+        cnpj: 01378407000110
+        cnpj_raiz: 01378407
+        denominacao: ALIANÇA DO BRASIL SEGUROS S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: '20141'
+        cnpj: '15138043000105'
+        cnpj_raiz: '15138043'
+        denominacao: BRASILCAP CAPITALIZAÇÃO S.A.
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: '04707'
+        cnpj: '27665207000131'
+        cnpj_raiz: '27665207'
+        denominacao: BRASILPREV SEGUROS E PREVIDÊNCIA S/A
+        origem: nome
+        no_mapa: false
+        aprovado: false
+      - codigo_fip: 06785
+        cnpj: '28196889000143'
+        cnpj_raiz: '28196889'
+        denominacao: BRASILSEG COMPANHIA DE SEGUROS
+        origem: nome
+        no_mapa: false
+        aprovado: false

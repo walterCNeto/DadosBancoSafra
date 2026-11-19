@@ -21,6 +21,8 @@ from .connectors.cvm_cadastros import CvmCadastrosConnector
 from .connectors.cvm_cia_aberta import CvmDfpConnector, CvmFreConnector, CvmIpeConnector, CvmItrConnector
 from .connectors.cvm_fundos import CvmFundosCadConnector, CvmFundosCdaConnector, CvmFundosInformeConnector
 from .connectors.cvm_ofertas import CvmOfertasConnector
+from .connectors.safra_ri import SafraRiConnector
+from .connectors.susep_ses import SusepSesConnector
 from .manifest import Checkpoint, load_checkpoint, read_entries, save_checkpoint, ultimas_por_url
 from .resolver import resolver_entidades
 
@@ -47,6 +49,9 @@ _FONTES: dict[str, tuple[str, type[Connector]]] = {
     "cvm.itr": ("cvm_itr", CvmItrConnector),
     "cvm.fre": ("cvm_fre", CvmFreConnector),
     "cvm.ipe": ("cvm_ipe", CvmIpeConnector),
+    # Bloco 4
+    "susep.ses": ("susep_ses", SusepSesConnector),
+    "safra.ri": ("safra_ri", SafraRiConnector),
 }
 _FONTE_ALIASES = {alias: nome for alias, (nome, _) in _FONTES.items()}
 _CONECTORES = {nome: cls for nome, cls in _FONTES.values()}
@@ -114,7 +119,7 @@ def _ingest_fonte(settings: Settings, fonte: str, desde: str, ate: str | None) -
 
 @app.command()
 def ingest(
-    fonte: str = typer.Option(..., "--fonte", help="bcb.ifdata | bcb.cosif | bcb.juros | bcb.reclamacoes | bcb.tarifas | bcb.estban | bcb.unicad | bcb.sgs | cvm.cadastros | cvm.fundos_cad | cvm.fundos_informe | cvm.fundos_cda | cvm.ofertas | cvm.dfp | cvm.itr | cvm.fre | cvm.ipe | all"),
+    fonte: str = typer.Option(..., "--fonte", help="bcb.ifdata | bcb.cosif | bcb.juros | bcb.reclamacoes | bcb.tarifas | bcb.estban | bcb.unicad | bcb.sgs | cvm.cadastros | cvm.fundos_cad | cvm.fundos_informe | cvm.fundos_cda | cvm.ofertas | cvm.dfp | cvm.itr | cvm.fre | cvm.ipe | susep.ses | safra.ri | all"),
     desde: str = typer.Option(None, "--desde", help="Data-base inicial, formato AAAA-MM (padrao: config)"),
     ate: str = typer.Option(None, "--ate", help="Data-base final, formato AAAA-MM (padrao: ultima disponivel)"),
 ) -> None:
@@ -138,11 +143,12 @@ def resolver_entidades_cmd(
     grupo: str = typer.Option(None, "--grupo", help="Grupo de config/entidades.yaml (padrao: todos)"),
     anomes: str = typer.Option(None, "--anomes", help="Data-base AAAAMM para consulta (padrao: ultima disponivel)"),
     sem_cvm: bool = typer.Option(False, "--sem-cvm", help="Nao consulta os cadastros da CVM (sugestoes de CNPJ CVM)"),
+    sem_susep: bool = typer.Option(False, "--sem-susep", help="Nao consulta a LISTAEMPRESAS da SUSEP (sugestoes de FIP)"),
 ) -> None:
     """Busca no IfDataCadastro os CNPJs/codigos de conglomerado do grupo e grava
     config/entidades_resolvidas.yaml para revisao humana."""
     settings = load_settings()
-    resultado = resolver_entidades(settings, grupo=grupo, anomes=anomes, incluir_cvm=not sem_cvm)
+    resultado = resolver_entidades(settings, grupo=grupo, anomes=anomes, incluir_cvm=not sem_cvm, incluir_susep=not sem_susep)
     typer.echo(f"status da consulta: {resultado['status_consulta']}")
     if resultado.get("erro_consulta"):
         typer.echo(f"erro: {resultado['erro_consulta']}")
@@ -162,6 +168,15 @@ def resolver_entidades_cmd(
                 continue
             for nome, itens in por_entidade.items():
                 typer.echo(f"  [{nome_grupo}] {nome}: {len(itens)} registro(s) CVM ({sum(1 for i in itens if i['ativo'])} ativos)")
+    susep = resultado.get("susep") or {}
+    if susep:
+        typer.echo(f"sugestoes SUSEP: {susep.get('status')}" + (f" ({susep['erro']})" if susep.get("erro") else ""))
+        for nome_grupo, por_entidade in (susep.get("sugestoes") or {}).items():
+            if grupo and nome_grupo != grupo:
+                continue
+            for nome, itens in por_entidade.items():
+                if itens:
+                    typer.echo(f"  [{nome_grupo}] {nome}: {len(itens)} empresa(s) SUSEP")
     typer.echo(f"gravado em {settings.entidades_resolvidas_path()}")
 
 

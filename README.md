@@ -11,7 +11,7 @@ Bloco 1 (+ correcoes do 1.1) cobre:
 - Camadas bronze (arquivo bruto + `manifest.jsonl`) e silver (parquet), com
   checkpoint incremental por fonte.
 
-O Bloco 2 (BCB complementar) e o Bloco 3 (CVM) acrescentam os conectores abaixo. SUSEP e a camada gold (`duckdb`) ficam para um bloco seguinte.
+O Bloco 2 (BCB complementar) e o Bloco 3 (CVM) acrescentam os conectores abaixo. O Bloco 4 acrescenta SUSEP (SES) e o RI do Banco Safra. A camada gold (`duckdb`) fica para um bloco seguinte.
 
 ## Requisitos
 
@@ -89,6 +89,9 @@ data\
 | `cvm.dfp`, `cvm.itr` | CKAN `cia_aberta-doc-dfp` / `-itr` | anual (data-base `AAAA`); `documentos`, `demonstracoes` (formato longo) e `composicao_capital` |
 | `cvm.fre`, `cvm.ipe` | CKAN `cia_aberta-doc-fre` / `-ipe` | anual; so `documentos` (metadados/links), sem tabelas de detalhe do FRE |
 
+| `susep.ses` | pagina do SES (`www2.susep.gov.br/menuestatistica/ses/principal.aspx`) -> `BaseCompleta.zip` + `LISTAEMPRESAS.csv` | data-base = mes de carga (`AAAAMM`) lido da pagina; zip de ~580 MB; tabelas desde 2020 |
+| `safra.ri` | `www.safra.com.br/sobre/relacoes-com-investidores...` (HTML) | catalogo de documentos de RI; ver bloco 4 (robots.txt) |
+
 Todas as chamadas Olinda usam `olinda_url`. As tabelas silver de fontes por instituicao
 trazem `grupo`/`is_safra`.
 
@@ -111,6 +114,11 @@ safra-dados ingest --fonte cvm.cadastros
 safra-dados ingest --fonte cvm.fundos_cad
 safra-dados ingest --fonte cvm.fundos_informe --desde 2024-01
 safra-dados ingest --fonte cvm.fundos_cda --desde 2024-01
+
+# Bloco 4: SUSEP (SES) e RI Safra
+safra-dados resolver-entidades          # agora tambem grava `susep.sugestoes` (FIP + CNPJ, aprovado: false)
+safra-dados ingest --fonte susep.ses --desde 2020-01
+safra-dados ingest --fonte safra.ri --desde 2023-01
 
 # status por fonte: ultima data-base, numero de arquivos, falhas
 safra-dados status
@@ -186,3 +194,58 @@ BCB e sao pulados por padrao; para roda-los: `pytest -m rede`.
   so nome) nao marcam nada. Fundos do grupo como emissores (FIDC etc.) nao entram.
 - DFP/ITR: `parecer` do auditor nao e carregado; FRE so tem o indice de documentos.
 - O arquivo e baixado inteiro a cada execucao para calcular o sha256 (padrao dos conectores).
+
+## Bloco 4 - SUSEP (SES) e RI do Banco Safra
+
+### `susep.ses`
+
+- **Descoberta**: so a pagina do SES esta em `settings.yaml` (`pagina_url`). Dela saem os links de
+  `BaseCompleta.zip` (via `redarq.asp`, que redireciona) e `LISTAEMPRESAS.csv`, e o mes de carga
+  (`lblMesAnoCarga`), que vira a data-base. Se a pagina mudar, a falha e registrada, nunca adivinhada.
+  `robots.txt` do host e consultado (o da SUSEP nao existe: tudo liberado).
+- **Arquivos**: CSVs `;` em cp1252, decimal com virgula, FIP (`coenti`) as vezes com espacos, nomes de
+  membro com caixa variada. O zip tem ~2,9 GB descompactado; as tabelas grandes sao extraidas uma a uma
+  para um diretorio temporario em `data\` e lidas em streaming (`scan_csv`) ja filtradas.
+- **Silver** (`silver\susep_ses\<tabela>\<AAAAMM>.parquet`):
+  - universo completo: `cadastro` (Ses_cias + LISTAEMPRESAS + ultimo grupo economico SUSEP), `ramos`,
+    `grupos_ramos`, `campos` (dicionario de itens do balanco) e `grupos_economicos` (desde `desde`);
+  - so safra/pares e periodo >= `desde`: `seguros` (premios/sinistros por empresa e ramo), `provramos`
+    (provisoes tecnicas por ramo), `prov`, `balanco` (com `noitem` vindo de `campos`: `cmpid` = `nuitem`),
+    `pl_margem` (PL, margem de solvencia), `valores_mov_ramos` e `uf`.
+  - Nao carregadas (existem no zip): `Ses_rmovram` (layout largo e instavel), `ses_contatos`,
+    `Ses_Administradores`, previdencia/capitalizacao detalhadas (`ses_pgbl_*`, `ses_prev_*`, `ses_cap_*`),
+    `Ses_limite_ret`, `Ses_part_acion`. Adicionar uma tabela = uma linha em `TABELAS_GRANDES`.
+- **Resolucao de entidades**: `resolver-entidades` cruza `LISTAEMPRESAS.csv` (FIP, nome, CNPJ) com
+  `busca_nome_susep` (e CNPJ raiz conhecido) de `entidades.yaml` e grava `susep.sugestoes.<grupo>.<entidade>`
+  em `entidades_resolvidas.yaml` com `aprovado: false`. **Revise e ponha `aprovado: true`**: so esses
+  marcam `grupo`/`is_safra` (por CNPJ no mapa e por FIP nas tabelas do SES). O `LISTAEMPRESAS` so lista
+  empresas ativas; entidades extintas aparecem so no `cadastro` do zip (sem CNPJ), marcaveis por FIP
+  se alguem as adicionar a mao em `susep.sugestoes`.
+- **Universo das tabelas grandes**: FIPs com `grupo` (aprovados) **mais os candidatos** (sugestoes ainda
+  `aprovado: false`). Candidatos ficam com `grupo` nulo e `grupo_sugerido` preenchido; assim, aprovar
+  uma sugestao so exige reprocessar a silver (`safra-dados ingest --fonte susep.ses`, ou `normalize`),
+  e `grupo` passa a valer. Filtre por `grupo` (nao por `grupo_sugerido`) em analises.
+- Cuidado com sugestoes por nome: ex. `ITAU SEGUROS DE AUTO E RESIDENCIA` (FIP 03182) hoje pertence ao
+  grupo Porto Seguro segundo o proprio SES (`cogrupo` 00051); revise antes de aprovar.
+- O zip e baixado inteiro a cada execucao (calcula o sha256; se igual, descarta e registra `ja_existe`).
+
+### `safra.ri` (RI do Banco Safra)
+
+- **Descoberta**: so HTML (nao precisa de JavaScript). Parte de `pagina_inicial`, segue links internos sob
+  `prefixo_paginas` (`.htm`) e le os blocos `div.doc AAAA[data-month=MM]` com `.titulo` + `span.badge`
+  + link. A secao (acordeao) e o titulo classificam o `tipo`: `demonstracoes_ifrs`, `demonstracoes_brgaap`,
+  `demonstracoes_brgaap_resumo` (o "Resumo Consolidado e Principais Indicadores"/balanco promocional, unico
+  BRGAAP publicado desde 2023 na pagina), `pilar3_gir` (relatorio + anexo xlsx), `relatorio_anual` e `outros`
+  (DCA da LIG, CVM008, etc., so catalogados). A data-base (`AAAAMM`) vem do titulo ("1T23", "set 2026",
+  "Relatorio Anual 2025"), depois do nome do arquivo, depois do mes de publicacao (`data_base_origem`).
+- **robots.txt e limite de taxa**: o robots.txt e avaliado por regra de maior correspondencia (RFC 9309;
+  `safra_dados.robots`, nao o `urllib.robotparser`, que liberaria tudo por causa do `Allow: /` inicial).
+  O site tem `Disallow: /data/` e **todos os arquivos de RI estao em `/data/files/...`**; por isso o conector
+  **nao baixa nenhum arquivo**: cataloga titulo, tipo, data-base, URL e formato com `status = bloqueado_robots`,
+  `baixado = false`, sem sha256. As paginas de listagem (permitidas) vao para a bronze, com hash. Se o robots.txt
+  mudar para permitir, o mesmo codigo baixa (`doc__<tipo>__<nome>`), grava sha256 e passa a ser incremental. Se o
+  robots.txt der erro 5xx/rede, nada e coletado. Intervalo minimo entre requisicoes: `intervalo_min_segundos` (2 s).
+- Silver `silver\safra_ri\<AAAAMM>.parquet`: um registro por documento (`tipo`, `titulo`, `url`, `formato`,
+  `status`, `baixado`, `sha256`, `bytes`, `arquivo_local`, ...), `grupo = safra` por `cnpj_emissor` (58160789).
+  `bronze\safra_ri\<AAAAMM>\catalogo.jsonl` guarda os metadados de todos os documentos vistos.
+- Sem parsing de PDF/xlsx.
