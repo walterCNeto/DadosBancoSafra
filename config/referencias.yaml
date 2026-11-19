@@ -1,0 +1,25 @@
+# Valores de referencia externos usados pela camada gold (conciliacoes e rotulos).
+# Edite aqui; `safra-dados gold` recria as views com estes valores.
+
+# Conciliacao do PL de fundos (gold.fundos_conciliacao). Valores informados em MIL de reais
+# (como nas demonstracoes); a gold converte para reais.
+#   visao: administrado | gerido | ambos  (qual PL deduplicado do gold.fundos comparar)
+fundos_referencias:
+  - id: nota9_ifrs_2026_09
+    descricao: "Fundos administrados - Nota 9 das demonstracoes IFRS do Banco Safra"
+    data_referencia: "2026-09-30"
+    valor_mil_reais: 179612195
+    visao: administrado
+    fonte: "Banco Safra, demonstracoes contabeis consolidadas em IFRS, Nota 9 (set 2026)"
+
+# O ranking de reclamacoes do BCB traz os conglomerados SEM CNPJ ("SAFRA (conglomerado)").
+# Como a regra do projeto e nunca marcar por nome na silver, o rotulo grupo/entidade dessas linhas
+# e declarado aqui, por nome EXATO do ranking, so para a gold.reclamacoes.
+reclamacoes_nomes:
+  - {instituicao: "SAFRA (conglomerado)", grupo: safra, entidade: banco_safra}
+  - {instituicao: "ITAU (conglomerado)", grupo: pares, entidade: itau_unibanco}
+  - {instituicao: "BRADESCO (conglomerado)", grupo: pares, entidade: bradesco}
+  - {instituicao: "SANTANDER (conglomerado)", grupo: pares, entidade: santander_brasil}
+  - {instituicao: "BB (conglomerado)", grupo: pares, entidade: banco_do_brasil}
+  # o ranking agrupa BTG e Pan num so conglomerado
+  - {instituicao: "BTG PACTUAL/BANCO PAN (conglomerado)", grupo: pares, entidade: btg_pactual}

@@ -76,6 +76,17 @@ class Settings:
     def manual_dir(self) -> Path:
         return self.data_root / "manual"
 
+    @property
+    def exports_dir(self) -> Path:
+        return self.data_root / "exports"
+
+    @property
+    def logs_dir(self) -> Path:
+        return self.data_root / "logs"
+
+    def referencias_path(self) -> Path:
+        return self.config_dir / "referencias.yaml"
+
     def bronze_fonte_dir(self, fonte: str, data_base: str | None = None) -> Path:
         base = self.bronze_dir / fonte
         return base / data_base if data_base else base

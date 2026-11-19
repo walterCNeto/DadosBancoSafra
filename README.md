@@ -11,7 +11,7 @@ Bloco 1 (+ correcoes do 1.1) cobre:
 - Camadas bronze (arquivo bruto + `manifest.jsonl`) e silver (parquet), com
   checkpoint incremental por fonte.
 
-O Bloco 2 (BCB complementar) e o Bloco 3 (CVM) acrescentam os conectores abaixo. O Bloco 4 acrescenta SUSEP (SES) e o RI do Banco Safra. A camada gold (`duckdb`) fica para um bloco seguinte.
+O Bloco 2 (BCB complementar) e o Bloco 3 (CVM) acrescentam os conectores abaixo. O Bloco 4 acrescenta SUSEP (SES) e o RI do Banco Safra. O Bloco 5 acrescenta a camada gold (DuckDB), exportacao e atualizacao agendada.
 
 ## Requisitos
 
@@ -65,7 +65,10 @@ Os dados ficam fora do controle de versao (`data\` esta no `.gitignore`):
 data\
   bronze\<fonte>\<data_base>\arquivo... + manifest.jsonl
   silver\<fonte>\<data_base>.parquet
-  gold\safra.duckdb        (bloco futuro)
+  gold\safra.duckdb        (views sobre o silver; bloco 5)
+  manual\safra_ri\         (arquivos baixados pelo navegador; bloco 4.1)
+  exports\                (csv/xlsx das views gold)
+  logs\                   (log de cada `atualizar`)
 ```
 
 ## Fontes
@@ -125,6 +128,11 @@ safra-dados reprocessar --fonte susep.ses        # ou cvm.fundos_cad, cvm.fundos
 # Bloco 4.1: arquivos de RI baixados pelo navegador (fonte bloqueada por robots) -> data\manual\safra_ri\
 safra-dados importar-manual --fonte safra_ri
 safra-dados importar-manual --fonte safra_ri --tipo demonstracoes_ifrs --data-base 2026-09   # arquivo sem correspondencia
+
+# Bloco 5: camada gold, exportacao e atualizacao
+safra-dados gold                                         # (re)cria as views e imprime o resumo do Safra
+safra-dados exportar --view capital --formato csv        # data\exports\capital.csv (ou --formato xlsx)
+safra-dados atualizar --dry-run                          # lista as fontes vencidas; sem --dry-run coleta e recria a gold
 
 # status por fonte: ultima data-base, numero de arquivos, falhas
 safra-dados status
@@ -279,3 +287,115 @@ BCB e sao pulados por padrao; para roda-los: `pytest -m rede`.
      sha256, atualiza o catalogo e regrava a silver (`baixado = true`, `status = importado_manual`).
   E idempotente (mesmo sha256 = `ja_importado`) e **nunca acessa a rede nem `/data/` do site**; um `ingest --fonte safra.ri`
   posterior nao sobrescreve um item importado manualmente.
+
+## Bloco 5 - camada gold, exportacao e atualizacao agendada
+
+### Gold (`data\gold\safra.duckdb`)
+
+`safra-dados gold` (re)cria o banco DuckDB. Ele **nao copia dados**: o schema `silver` tem uma view por fonte
+(`read_parquet('data/silver/.../*.parquet', union_by_name = true)`) e o schema `gold` tem views sobre elas. As unicas tabelas
+reais sao tres configuracoes pequenas: `gold.dim_entidade` (identificador -> grupo/entidade, montada de `entidades*.yaml`),
+`gold.dim_reclamacao_nome` e `gold.referencias_fundos` (de `config\referencias.yaml`). Uma view so e criada se as fontes silver
+de que depende existem; as demais sao listadas como `ignorada`. Como as views apontam para os parquets, nao ha o que "atualizar":
+`safra-dados atualizar` reingere o silver e recria a gold por garantia.
+
+Todas as views trazem `data_base` (**DATE**, ultimo dia do periodo), `grupo` (`safra`/`pares`) e `entidade` (chave de
+`entidades.yaml`: `banco_safra`, `itau_unibanco`, ...); **valores em reais**; indices e razoes derivados **arredondados a 3 casas**.
+"Mediana dos pares" = mediana entre as entidades do grupo `pares` na mesma `data_base`.
+
+| view | conteudo |
+|---|---|
+| `gold.capital` | IF.data (relatorio 5): PR, Capital Nivel I, Capital Principal, Complementar, Nivel II, RWA total e por tipo (credito, mercado, operacional, pagamentos), exposicao, indices (Basileia, Nivel I, Capital Principal, alavancagem) e, para cada indice, a mediana dos pares e a diferenca Safra - pares |
+| `gold.balanco_dre` | trimestral: ativo, carteira, captacoes, PL, lucro acumulado no ano e **do trimestre** (IF.data), `roe_anualizado` e `roa_anualizado`, mediana dos pares, e os mesmos valores/ROE/ROA pelo Cosif (documento 4060) com `dif_ativo_cosif_vs_ifdata` |
+| `gold.carteira` | formato longo (`corte`, `segmento`, `categoria`, `valor`, `participacao_na_carteira`): `modalidade` (PF/PJ, coluna Total), `porte` (PJ), `indexador`, `carteira_res4966` (C1-C5, ativos problematicos, inadimplencia) e `nivel_risco` **quando o IF.data coletado trouxer esse relatorio** (hoje nao ha: o relatorio 8 nao esta na silver) |
+| `gold.juros` | taxa a.m./a.a. por modalidade, segmento e periodicidade (mensal/diaria), por entidade, com `mediana_pares_*`, `n_pares` e `dif_ao_ano_vs_mediana_pares`; varias instituicoes da mesma entidade entram como media simples |
+| `gold.reclamacoes` | indice e quantidades do ranking do BCB, com mediana dos pares (por `tipo_instituicao`). Os conglomerados vem sem CNPJ, entao o rotulo grupo/entidade vem de `reclamacoes_nomes` em `config\referencias.yaml` (nome exato do ranking) |
+| `gold.agencias` | Estban: `n_agencias`, `n_municipios` (nivel agencia) e saldos Estban (verbetes 160, 432, 420) por entidade, com a mediana de agencias dos pares |
+| `gold.fundos`, `gold.fundos_conciliacao` | PL do grupo deduplicado (ver abaixo) |
+| `gold.seguros` | SES: premios (mes e acumulado no ano), sinistros, **sinistralidade** (`sinistro_ocorrido / premio_ganho`), provisoes tecnicas, PL e margem, por seguradora aprovada, com a mediana dos pares |
+
+Calculos que merecem atencao:
+
+- **ROE/ROA anualizados** = lucro acumulado no ano x 12 / mes de referencia / base, onde a base e a **media do saldo do periodo e
+  de dezembro do ano anterior** (so o saldo do periodo se dezembro anterior nao esta na silver; ver `base_media`).
+  `lucro_liquido_trimestre` = acumulado - acumulado do trimestre anterior (nulo se o trimestre anterior nao esta na silver).
+- **IF.data**: so conglomerados de `entidades.yaml`/resolvidas (por `cod_inst` do conglomerado). Instituicoes marcadas `pares` por CNPJ
+  aprovado no CVM (ex.: Avenue Securities, `C0088008`) nao entram em capital/balanco/carteira para nao duplicar o conglomerado Itau.
+- **Cosif**: `ativo = 1.0.0.00.00-9 + 2.0.0.00.00-8`; `PL = 6 + 7 + 8` (inclui o resultado do periodo); `lucro = 7.0.0.00.00-3 + 8.0.0.00.00-2`
+  (confere com o IF.data).
+
+### PL de fundos do grupo (`gold.fundos`)
+
+1. **Dia**: ultimo dia com informe em cada mes, considerando so dias com pelo menos metade dos fundos do dia mais cheio do mes
+   (dia parcial de publicacao e ignorado); `mes_encerrado = false` para o mes em curso.
+2. **PL por classe, sem subclasses**: usa a linha da classe (`id_subclasse` nulo); classes que no informe pos-RCVM 175 so tem linhas de
+   subclasse usam a **soma das subclasses**; nunca classe + subclasses.
+3. **Tres visoes**: `administrado` (administrador no conjunto Safra), `gerido` (gestor no conjunto Safra) e `ambos` (uma ou outra, sem
+   contar duas vezes). O papel vem do cadastro novo (`registro_classe`); o legado (`cad_fi`) so vale para CNPJ ausentes dele.
+4. **Deduplicacao**: `pl_deduplicado = pl_bruto - posicoes_em_cotas_do_grupo`, onde as posicoes sao as aplicacoes em cotas de fundos
+   (`cnpj_fundo_classe_cota` preenchido, `vl_merc_pos_final`) do **CDA** em que detentor **e** fundo cotizado pertencem ao conjunto da
+   propria visao. Usa o CDA do mes (data de competencia = fim do mes, que pode diferir do ultimo dia util). `n_fundos_com_cda` mostra
+   quantos fundos da visao tem carteira no CDA do mes: **o CDA do mes mais recente costuma vir incompleto**, o que subestima as cotas do
+   grupo e superestima o PL deduplicado.
+5. **Conciliacao** (`gold.fundos_conciliacao`): cada item de `fundos_referencias` em `config\referencias.yaml` (valor em **mil de reais**,
+   como nas demonstracoes) e comparado com o PL deduplicado da `visao` indicada no mesmo mes; traz `diferenca` (gold - referencia),
+   `diferenca_pct` e as tres visoes. Item inicial: fundos administrados, Nota 9 das demonstracoes IFRS de 30/09/2026 = 179.612.195 mil.
+   Para mudar ou acrescentar uma referencia, edite o yaml e rode `safra-dados gold`.
+
+### Exportacao
+
+`safra-dados exportar --view <nome> --formato csv|xlsx` grava `data\exports\<nome>.<formato>` (views: capital, balanco_dre, carteira,
+juros, reclamacoes, agencias, fundos, fundos_conciliacao, seguros). `xlsx` usa `xlsxwriter` (limite de linhas do Excel verificado).
+
+### `safra-dados atualizar`
+
+Para cada fonte, `safra_dados.calendario` calcula a **data-base que ja deveria estar publicada hoje** e a compara com o checkpoint:
+a fonte esta **vencida** se essa data-base nao foi coletada, foi coletada com falha, ou (fontes com `refresh_dias`) a coleta ficou velha.
+
+| fonte | data-base esperada | refresh |
+|---|---|---|
+| `bcb.ifdata`, `bcb.cosif` | ultimo trimestre com prazo de divulgacao vencido (calendario dos conectores) | - |
+| `bcb.juros`, `bcb.unicad` | mes anterior (juros: ate dia 5) | - |
+| `bcb.reclamacoes` | ultimo trimestre + ~50 dias | - |
+| `bcb.estban` | ultimo mes + ~50 dias | - |
+| `bcb.tarifas`, `cvm.cadastros`, `cvm.fundos_cad`, `cvm.ofertas` | mes corrente (retrato instantaneo) | - |
+| `bcb.sgs`, `cvm.fundos_informe`, `cvm.ipe` | mes/ano corrente | 1 dia |
+| `cvm.fundos_cda` | mes anterior | - |
+| `cvm.dfp` | ano anterior (depois de 30/04) | - |
+| `cvm.itr` / `cvm.fre` | ano corrente | 7 / 30 dias |
+| `susep.ses` | mes de hoje - 2 (apos o dia 17) | - |
+| `safra.ri` | mes corrente (catalogo) | 7 dias |
+
+As fontes vencidas rodam em ordem (`cvm.fundos_cad` antes de informe/CDA) com `--desde` = ultima data-base ok (a configurada em
+`susep.ses` e `safra.ri`, onde `--desde` filtra o conteudo); uma falha numa fonte nao derruba as demais; depois roda `gold`. Termina com
+codigo 1 se houve falha. `--dry-run` so lista; `--sem-gold` pula a gold. O log de cada execucao fica em
+`data\logs\atualizar_AAAAMMDD_HHMMSS.log` (a saida do terminal e a mesma).
+
+### Agendamento no Windows
+
+`atualizar.ps1` (raiz do projeto) localiza o conda, ativa o ambiente `dadossafra` e roda `safra-dados atualizar`; problemas de
+ambiente vao para `data\logs\agendador.log` e o codigo de saida do `atualizar` e propagado. **A tarefa nao e registrada
+automaticamente.** Para registrar, diariamente as 07:10, em um PowerShell (ajuste o caminho):
+
+```powershell
+$raiz = "C:\caminho\para\DadosBancoSafra"
+$acao = New-ScheduledTaskAction -Execute "powershell.exe" `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$raiz\atualizar.ps1`"" -WorkingDirectory $raiz
+$gatilho = New-ScheduledTaskTrigger -Daily -At "07:10"
+$config = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 3)
+Register-ScheduledTask -TaskName "safra-dados atualizar" -Action $acao -Trigger $gatilho -Settings $config `
+    -Description "Atualiza as fontes vencidas e a camada gold do safra-dados"
+```
+
+Para testar na hora: `Start-ScheduledTask -TaskName "safra-dados atualizar"`; para remover:
+`Unregister-ScheduledTask -TaskName "safra-dados atualizar" -Confirm:$false`. `-StartWhenAvailable` roda a tarefa assim que o
+computador ligar se ele estava desligado as 07:10.
+
+### Limitacoes (bloco 5)
+
+- **Estban**: os saldos de `gold.agencias` (`estban_*`) nao conciliam com o IF.data (ex.: verbete 160 do Safra em jun/2026 soma ~R$ 330 bi
+  contra carteira de ~R$ 139 bi no IF.data) e algumas "agencias" trazem como identificador o CNPJ de outra instituicao; use as contagens
+  com cuidado e os saldos so como referencia interna do Estban. `Total do ativo` (399) nao e exposto por esse motivo.
+- IF.data e Cosif cobrem os trimestres que estao no bronze (hoje 2025-12 a 2026-06); informe/CDA so os meses ingeridos.
+- Sem calendario de feriados: o "ultimo dia util" e o ultimo dia com informe publicado.
+- `reclamacoes_nomes`: o BTG vem agrupado com o Banco Pan no ranking.

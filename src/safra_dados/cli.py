@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
+import sys
 from collections import defaultdict
+from datetime import date, datetime
 from pathlib import Path
 
 import typer
@@ -24,6 +27,8 @@ from .connectors.cvm_ofertas import CvmOfertasConnector
 from .connectors.safra_ri import SafraRiConnector
 from .connectors.susep_ses import SusepSesConnector
 from .manifest import Checkpoint, load_checkpoint, read_entries, save_checkpoint, ultimas_por_url
+from .calendario import desde_para_atualizar, vencida
+from .gold import VIEWS_EXPORTAVEIS, _bi, conciliacao_fundos, conectar_gold, criar_gold, exportar_view, resumo_safra
 from .importacao_manual import FONTE_RI, TIPOS_VALIDOS, importar_manual
 from .reprocessar import reprocessar_fonte
 from .resolver import resolver_entidades
@@ -239,6 +244,117 @@ def importar_manual_cmd(
         connector.normalize(db)
         typer.echo(f"[{nome}] {db}: silver atualizada")
     if pendentes:
+        raise typer.Exit(code=1)
+
+
+def _imprimir_gold(settings: Settings, resultado) -> None:
+    typer.echo(f"gold: {resultado.caminho}")
+    typer.echo(f"  views criadas: {', '.join(resultado.criadas) or '(nenhuma)'}")
+    for nome, motivo in resultado.ignoradas.items():
+        typer.echo(f"  ignorada {nome}: {motivo}")
+    for nome, erro in resultado.erros.items():
+        typer.echo(f"  ERRO em {nome}: {erro}", err=True)
+    con = conectar_gold(settings)
+    try:
+        typer.echo("resumo do Safra (ultimo periodo de cada view):")
+        for linha in resumo_safra(con):
+            typer.echo("  " + linha)
+        for c in conciliacao_fundos(con):
+            if c["pl_deduplicado_visao"] is None:
+                typer.echo(f"  [conciliacao] {c['id']}: sem PL no gold para {c['data_base']}")
+                continue
+            typer.echo(
+                f"  [conciliacao] {c['id']} ({c['visao']}, {c['data_base']}): referencia {_bi(c['valor_referencia'])}; "
+                f"gold {_bi(c['pl_deduplicado_visao'])}; diferenca {_bi(c['diferenca'])} ({c['diferenca_pct']:+.1%})"
+            )
+    finally:
+        con.close()
+
+
+@app.command()
+def gold() -> None:
+    """(Re)cria as views da camada gold (data/gold/safra.duckdb) e imprime o resumo do ultimo periodo do Safra."""
+    settings = load_settings()
+    resultado = criar_gold(settings)
+    _imprimir_gold(settings, resultado)
+    if resultado.erros:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def exportar(
+    view: str = typer.Option(..., "--view", help=" | ".join(VIEWS_EXPORTAVEIS)),
+    formato: str = typer.Option("csv", "--formato", help="csv | xlsx"),
+) -> None:
+    """Exporta uma view gold para data/exports/<view>.<formato>."""
+    settings = load_settings()
+    try:
+        destino = exportar_view(settings, view, formato)
+    except (ValueError, FileNotFoundError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(f"exportado: {destino}")
+
+
+class _Tee:
+    """Escreve no terminal e no arquivo de log."""
+
+    def __init__(self, *fluxos) -> None:
+        self.fluxos = fluxos
+
+    def write(self, texto: str) -> int:
+        for f in self.fluxos:
+            f.write(texto)
+            f.flush()
+        return len(texto)
+
+    def flush(self) -> None:
+        for f in self.fluxos:
+            f.flush()
+
+
+@app.command()
+def atualizar(
+    dry_run: bool = typer.Option(False, "--dry-run", help="So lista as fontes vencidas; nao coleta nem recria a gold"),
+    sem_gold: bool = typer.Option(False, "--sem-gold", help="Nao recria a gold ao final"),
+) -> None:
+    """Roda so as fontes com publicacao vencida pelo calendario de cada conector, depois `gold`.
+    Log em data/logs/atualizar_AAAAMMDD_HHMMSS.log."""
+    settings = load_settings()
+    hoje = date.today()
+    settings.logs_dir.mkdir(parents=True, exist_ok=True)
+    log_path = settings.logs_dir / f"atualizar_{datetime.now():%Y%m%d_%H%M%S}.log"
+    falhas: list[str] = []
+    with log_path.open("w", encoding="utf-8") as log:
+        tee_out, tee_err = _Tee(sys.stdout, log), _Tee(sys.stderr, log)
+        with contextlib.redirect_stdout(tee_out), contextlib.redirect_stderr(tee_err):
+            typer.echo(f"atualizar em {datetime.now().isoformat(timespec='seconds')} (log: {log_path})")
+            vencidas = []
+            for fonte in _FONTE_ALIASES.values():
+                checkpoint = load_checkpoint(settings.checkpoint_path(fonte), fonte)
+                esta_vencida, motivo = vencida(fonte, checkpoint, hoje)
+                typer.echo(f"  {'VENCIDA' if esta_vencida else 'em dia '} {fonte}: {motivo}")
+                if esta_vencida:
+                    vencidas.append((fonte, checkpoint))
+            if dry_run:
+                typer.echo(f"dry-run: {len(vencidas)} fonte(s) seriam atualizadas.")
+                return
+            for fonte, checkpoint in vencidas:
+                desde = desde_para_atualizar(fonte, checkpoint, settings.fonte_config(fonte).get("desde", "2015-03"))
+                try:
+                    falhas += _ingest_fonte(settings, fonte, desde, None)
+                except Exception as exc:  # uma fonte com problema nao derruba as demais nem a gold
+                    typer.echo(f"[{fonte}] FALHOU: {exc}", err=True)
+                    falhas.append(f"[{fonte}] {exc}")
+            if not sem_gold:
+                try:
+                    resultado = criar_gold(settings)
+                    _imprimir_gold(settings, resultado)
+                    falhas += [f"gold.{n}: {e}" for n, e in resultado.erros.items()]
+                except Exception as exc:
+                    typer.echo(f"gold FALHOU: {exc}", err=True)
+                    falhas.append(f"gold: {exc}")
+            typer.echo(f"fim: {len(vencidas)} fonte(s) atualizadas, {len(falhas)} falha(s).")
+    if falhas:
         raise typer.Exit(code=1)
 
 
