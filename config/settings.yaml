@@ -1,0 +1,35 @@
+# Configuracao do servico safra-dados.
+# A raiz dos dados pode ser sobrescrita pela variavel de ambiente SAFRA_DADOS_HOME.
+data_root: data
+
+http:
+  user_agent: "safra-dados/0.1 (uso academico/pesquisa; contato: walter.correa.neto@gmail.com)"
+  timeout_seconds: 60
+  max_retries: 5
+  backoff_factor: 1.5
+  # intervalo minimo, em segundos, entre requisicoes ao mesmo host
+  min_interval_seconds: 0.5
+
+fontes:
+  bcb_ifdata:
+    base_url: "https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata"
+    desde: "2015-03"
+    # Tipos de instituicao do IFDATA (ver swagger):
+    # 1 - Conglomerados Prudenciais e Instituicoes Independentes
+    # 2 - Conglomerados Financeiros e Instituicoes Independentes
+    # 3 - Instituicoes Individuais
+    # 4 - Instituicoes com Operacoes de Cambio
+    tipos_instituicao: [1]
+
+  bcb_cosif:
+    ckan_base_url: "https://dadosabertos.bcb.gov.br/api/3/action"
+    ckan_package_id: "ifs-balancetes"
+    segmento_base_url: "https://www.bcb.gov.br/content/estabilidadefinanceira/cosif"
+    individualizado_base_url: "https://www4.bcb.gov.br/fis/cosif/cont/balan/individualizados"
+    desde: "2015-03"
+    # segmentos cobertos neste bloco: nome do diretorio -> sigla do arquivo
+    segmentos:
+      Bancos: BANCOS
+      Conglomerados-prudenciais: BLOPRUDENCIAL
+    # documentos historicos usados no endpoint individualizado (pre-2023, por CNPJ/conglomerado)
+    documentos_individualizado: ["4010", "4040"]

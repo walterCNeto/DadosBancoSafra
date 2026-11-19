@@ -1,0 +1,39 @@
+gerado_em: '2026-11-19T12:04:28+00:00'
+anomes_consultado: '202606'
+fonte: bcb_ifdata.IfDataCadastro
+status_consulta: falha_api
+erro_consulta: 'HTTP 500 em https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata/IfDataCadastro(AnoMes=@AnoMes):
+  ''/*{\n  "codigo" : 500,\n  "mensagem" : "Erro desconhecido"\n}*/'''
+grupos:
+  safra:
+    entidades:
+      banco_safra:
+        status: falha_api
+        candidatos: []
+        erro: 'HTTP 500 em https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata/IfDataCadastro(AnoMes=@AnoMes):
+          ''/*{\n  "codigo" : 500,\n  "mensagem" : "Erro desconhecido"\n}*/'''
+      seguradora_safra:
+        status: falha_api
+        candidatos: []
+        erro: 'HTTP 500 em https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata/IfDataCadastro(AnoMes=@AnoMes):
+          ''/*{\n  "codigo" : 500,\n  "mensagem" : "Erro desconhecido"\n}*/'''
+      previdencia_safra:
+        status: falha_api
+        candidatos: []
+        erro: 'HTTP 500 em https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata/IfDataCadastro(AnoMes=@AnoMes):
+          ''/*{\n  "codigo" : 500,\n  "mensagem" : "Erro desconhecido"\n}*/'''
+      asset_safra:
+        status: falha_api
+        candidatos: []
+        erro: 'HTTP 500 em https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata/IfDataCadastro(AnoMes=@AnoMes):
+          ''/*{\n  "codigo" : 500,\n  "mensagem" : "Erro desconhecido"\n}*/'''
+      corretora_safra:
+        status: falha_api
+        candidatos: []
+        erro: 'HTTP 500 em https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata/IfDataCadastro(AnoMes=@AnoMes):
+          ''/*{\n  "codigo" : 500,\n  "mensagem" : "Erro desconhecido"\n}*/'''
+      banco_alfa:
+        status: falha_api
+        candidatos: []
+        erro: 'HTTP 500 em https://olinda.bcb.gov.br/olinda/servico/IFDATA/versao/v1/odata/IfDataCadastro(AnoMes=@AnoMes):
+          ''/*{\n  "codigo" : 500,\n  "mensagem" : "Erro desconhecido"\n}*/'''

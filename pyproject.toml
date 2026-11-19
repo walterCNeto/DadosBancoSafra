@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "safra-dados"
+version = "0.1.0"
+description = "Coleta de dados publicos (BCB, CVM, SUSEP) sobre o conglomerado Banco Safra e pares"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Walter C. Neto" }]
+dependencies = [
+    "httpx>=0.27",
+    "polars>=1.0",
+    "duckdb>=1.0",
+    "pyarrow>=16.0",
+    "typer>=0.12",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "respx>=0.21",
+]
+
+[project.scripts]
+safra-dados = "safra_dados.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+markers = [
+    "rede: testes que acessam servicos externos reais (desabilitados por padrao; rode com -m rede)",
+]
+testpaths = ["tests"]

@@ -1,0 +1,49 @@
+# Entidades de interesse para coleta e comparacao.
+# "cnpj" e "codigo_conglomerado" conhecidos previamente ficam preenchidos;
+# campos com valor null devem ser preenchidos por `safra-dados resolver-entidades`,
+# que grava o resultado revisado em config/entidades_resolvidas.yaml.
+#
+# "busca_nome" e uma lista de termos (case-insensitive, sem acento) usados pelo
+# resolvedor para casar o nome da instituicao no cadastro do IFDATA (IfDataCadastro).
+
+grupos:
+  safra:
+    descricao: "Conglomerado Banco Safra"
+    cnpj_raiz: "58160789"
+    entidades:
+      banco_safra:
+        descricao: "Banco Safra S.A. (banco multiplo, lider do conglomerado)"
+        cnpj_raiz: "58160789"
+        busca_nome: ["safra"]
+        # observado empiricamente nos balancetes Cosif de 2026-06; o resolvedor
+        # deve confirmar/atualizar via IfDataCadastro, este e apenas um indicio.
+        codigo_conglomerado_prudencial_hint: "C0080109"
+
+      seguradora_safra:
+        descricao: "Safra Seguros / seguradora do conglomerado"
+        cnpj_raiz: null
+        busca_nome: ["safra seguros", "seguradora safra"]
+
+      previdencia_safra:
+        descricao: "Safra Vida e Previdencia"
+        cnpj_raiz: null
+        busca_nome: ["safra vida", "safra previdencia"]
+
+      asset_safra:
+        descricao: "Safra Asset Management (gestora de recursos)"
+        cnpj_raiz: null
+        busca_nome: ["safra asset", "j. safra asset"]
+
+      corretora_safra:
+        descricao: "Safra Corretora de Valores e Cambio"
+        cnpj_raiz: null
+        busca_nome: ["safra corretora", "safra cvc", "safra ctvm"]
+
+      banco_alfa:
+        descricao: "Banco Alfa (ligado ao grupo Safra)"
+        cnpj_raiz: null
+        busca_nome: ["alfa"]
+
+# outras instituicoes (pares) podem ser adicionadas aqui seguindo o mesmo formato,
+# e passarao a ser resolvidas e marcadas no silver junto com o grupo "safra".
+outras_instituicoes: []
