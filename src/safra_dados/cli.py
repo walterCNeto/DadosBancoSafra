@@ -359,6 +359,32 @@ def atualizar(
         raise typer.Exit(code=1)
 
 
+@app.command("app")
+def app_cmd(
+    porta: int = typer.Option(None, "--porta", help="Porta do servidor (padrao do Streamlit: 8501)"),
+    headless: bool = typer.Option(False, "--headless", help="Nao abre o navegador"),
+) -> None:
+    """Abre o app Streamlit local (somente leitura), equivalente a `streamlit run app/app.py`. Requer o extra `app`."""
+    import importlib.util
+    import os
+    import subprocess
+
+    if importlib.util.find_spec("streamlit") is None or importlib.util.find_spec("plotly") is None:
+        raise typer.BadParameter('streamlit/plotly nao instalados; rode: pip install -e ".[app]"')
+    settings = load_settings()
+    raiz = settings.config_dir.parent
+    entrada = raiz / "app" / "app.py"
+    if not entrada.is_file():
+        raise typer.BadParameter(f"{entrada} nao encontrado")
+    cmd = [sys.executable, "-m", "streamlit", "run", str(entrada)]
+    if porta:
+        cmd += ["--server.port", str(porta)]
+    if headless:
+        cmd += ["--server.headless", "true"]
+    env = {**os.environ, "SAFRA_DADOS_CONFIG_DIR": str(settings.config_dir)}
+    raise typer.Exit(code=subprocess.call(cmd, cwd=raiz, env=env))
+
+
 @app.command()
 def status() -> None:
     """Mostra, por fonte, a ultima data-base processada, numero de arquivos e falhas."""

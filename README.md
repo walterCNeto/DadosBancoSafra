@@ -11,7 +11,7 @@ Bloco 1 (+ correcoes do 1.1) cobre:
 - Camadas bronze (arquivo bruto + `manifest.jsonl`) e silver (parquet), com
   checkpoint incremental por fonte.
 
-O Bloco 2 (BCB complementar) e o Bloco 3 (CVM) acrescentam os conectores abaixo. O Bloco 4 acrescenta SUSEP (SES) e o RI do Banco Safra. O Bloco 5 acrescenta a camada gold (DuckDB), exportacao e atualizacao agendada.
+O Bloco 2 (BCB complementar) e o Bloco 3 (CVM) acrescentam os conectores abaixo. O Bloco 4 acrescenta SUSEP (SES) e o RI do Banco Safra. O Bloco 5 acrescenta a camada gold (DuckDB), exportacao e atualizacao agendada. O Bloco 6 acrescenta o app Streamlit local (somente leitura).
 
 ## Requisitos
 
@@ -141,6 +141,27 @@ safra-dados status
 A ingestao e **idempotente**: se o sha256 de um recurso ja coletado com
 sucesso bater, o arquivo nao e baixado de novo (ver `manifest.jsonl` e
 `checkpoint.json` em cada `data\bronze\<fonte>\`).
+
+## App
+
+App Streamlit **local e somente leitura** para explorar tudo o que foi coletado.
+
+```powershell
+conda activate dadossafra
+pip install -e .[app]        # streamlit e plotly (extra [app])
+safra-dados app              # equivale a: streamlit run apppp.py  (opcoes: --porta 8502, --headless)
+```
+
+- O app cria um **DuckDB em memoria** e aplica as mesmas views de `gold.py` (`aplicar_views`); nao abre
+  `data\gold\safra.duckdb`, entao nao conflita com a tarefa agendada que o recria as 07:10. A primeira carga
+  leva ~30 s (as views de fundos sao materializadas uma vez). Consultas ficam em cache por 1 h; o botao
+  **Recarregar dados** da barra lateral limpa os caches (use depois da atualizacao diaria).
+- Nenhuma tabela silver e carregada inteira: as paginas agregam no DuckDB e o Explorador pagina com LIMIT/OFFSET.
+  Download direto ate 50.000 linhas; acima disso o arquivo e gravado em `data\exports\` e o caminho e informado.
+- Valores em R$ bi e indices em % com 3 casas decimais e virgula decimal (so na exibicao; o download traz os valores brutos).
+- Barra lateral global: grupo (Safra, Pares, Todos), entidade (multiselecao) e periodo (data-base).
+- Paginas: Visao geral, Capital, Balanco e DRE, Carteira, Juros, Fundos, Seguros, Reclamacoes e agencias,
+  Explorador (qualquer view gold/fonte silver, filtros por coluna, SQL somente SELECT/WITH) e Fontes e status.
 
 ## Testes
 

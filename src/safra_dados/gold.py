@@ -599,7 +599,7 @@ VIEWS_EXPORTAVEIS = (
 
 @dataclass
 class ResultadoGold:
-    caminho: Path
+    caminho: Path | None
     silver_views: list[str] = field(default_factory=list)
     criadas: list[str] = field(default_factory=list)
     ignoradas: dict[str, str] = field(default_factory=dict)
@@ -613,6 +613,61 @@ def _glob_silver(settings: Settings, padrao: str) -> str:
 DESDE_PL_MINIMO_PADRAO = "2026-08-01"
 
 
+def aplicar_views(con: duckdb.DuckDBPyConnection, settings: Settings,
+                  resultado: ResultadoGold | None = None) -> ResultadoGold:
+    """Aplica em QUALQUER conexao DuckDB (arquivo ou memoria) os schemas, as views silver, as tabelas de
+    configuracao e as views gold. Unica definicao das views: `criar_gold` (arquivo) e o app Streamlit
+    (memoria) usam esta funcao. Idempotente."""
+    resultado = resultado or ResultadoGold(None)
+    con.execute("create schema if not exists silver")
+    con.execute("create schema if not exists gold")
+    for nome, padrao in SILVER_VIEWS.items():
+        alvo = _glob_silver(settings, padrao)
+        if glob.glob(alvo):
+            con.execute(
+                f"create or replace view silver.{nome} as select * from read_parquet('{alvo}', union_by_name = true)"
+            )
+            resultado.silver_views.append(nome)
+        else:
+            con.execute(f"drop view if exists silver.{nome}")
+
+    # tabelas de configuracao (pequenas)
+    con.execute("create or replace table gold.dim_entidade "
+                "(tipo_id varchar, identificador varchar, grupo varchar, entidade varchar, origem varchar)")
+    dim = construir_dim_entidade(settings)
+    if dim:
+        con.executemany("insert into gold.dim_entidade values (?, ?, ?, ?, ?)", dim)
+
+    refs = carregar_referencias(settings)
+    con.execute("create or replace table gold.dim_reclamacao_nome (instituicao varchar, grupo varchar, entidade varchar)")
+    for item in refs.get("reclamacoes_nomes") or []:
+        con.execute("insert into gold.dim_reclamacao_nome values (?, ?, ?)",
+                    [item["instituicao"], item["grupo"], item["entidade"]])
+    con.execute(
+        "create or replace table gold.referencias_fundos (id varchar, descricao varchar, data_referencia date, "
+        "componentes varchar, valor_referencia double, visao varchar, inclui_previdencia_ses boolean, fonte varchar)"
+    )
+    for linha in referencias_fundos(refs):
+        con.execute("insert into gold.referencias_fundos values (?, ?, ?, ?, ?, ?, ?, ?)", linha)
+
+    desde_minimo = str(refs.get("fundos_pl_minimo_desde", DESDE_PL_MINIMO_PADRAO))
+    if len(desde_minimo) == 7:
+        desde_minimo += "-01"
+    date.fromisoformat(desde_minimo)  # valida
+    for nome, (requer, sql) in VIEWS_GOLD.items():
+        faltam = [r for r in requer if r not in resultado.silver_views]
+        if faltam:
+            resultado.ignoradas[nome] = "faltam fontes silver: " + ", ".join(faltam)
+            con.execute(f"drop view if exists gold.{nome}")
+            continue
+        try:
+            con.execute(f"create or replace view gold.{nome} as {sql.replace('@@DESDE@@', desde_minimo)}")
+            resultado.criadas.append(nome)
+        except duckdb.Error as exc:
+            resultado.erros[nome] = str(exc).splitlines()[0]
+    return resultado
+
+
 def criar_gold(settings: Settings, caminho: Path | None = None) -> ResultadoGold:
     """(Re)cria views e tabelas de configuracao em `data/gold/safra.duckdb`. Idempotente."""
     caminho = caminho or settings.gold_db_path
@@ -620,52 +675,7 @@ def criar_gold(settings: Settings, caminho: Path | None = None) -> ResultadoGold
     resultado = ResultadoGold(caminho)
     con = duckdb.connect(str(caminho))
     try:
-        con.execute("create schema if not exists silver")
-        con.execute("create schema if not exists gold")
-        for nome, padrao in SILVER_VIEWS.items():
-            alvo = _glob_silver(settings, padrao)
-            if glob.glob(alvo):
-                con.execute(
-                    f"create or replace view silver.{nome} as select * from read_parquet('{alvo}', union_by_name = true)"
-                )
-                resultado.silver_views.append(nome)
-            else:
-                con.execute(f"drop view if exists silver.{nome}")
-
-        # tabelas de configuracao (pequenas)
-        con.execute("create or replace table gold.dim_entidade "
-                    "(tipo_id varchar, identificador varchar, grupo varchar, entidade varchar, origem varchar)")
-        dim = construir_dim_entidade(settings)
-        if dim:
-            con.executemany("insert into gold.dim_entidade values (?, ?, ?, ?, ?)", dim)
-
-        refs = carregar_referencias(settings)
-        con.execute("create or replace table gold.dim_reclamacao_nome (instituicao varchar, grupo varchar, entidade varchar)")
-        for item in refs.get("reclamacoes_nomes") or []:
-            con.execute("insert into gold.dim_reclamacao_nome values (?, ?, ?)",
-                        [item["instituicao"], item["grupo"], item["entidade"]])
-        con.execute(
-            "create or replace table gold.referencias_fundos (id varchar, descricao varchar, data_referencia date, "
-            "componentes varchar, valor_referencia double, visao varchar, inclui_previdencia_ses boolean, fonte varchar)"
-        )
-        for linha in referencias_fundos(refs):
-            con.execute("insert into gold.referencias_fundos values (?, ?, ?, ?, ?, ?, ?, ?)", linha)
-
-        desde_minimo = str(refs.get("fundos_pl_minimo_desde", DESDE_PL_MINIMO_PADRAO))
-        if len(desde_minimo) == 7:
-            desde_minimo += "-01"
-        date.fromisoformat(desde_minimo)  # valida
-        for nome, (requer, sql) in VIEWS_GOLD.items():
-            faltam = [r for r in requer if r not in resultado.silver_views]
-            if faltam:
-                resultado.ignoradas[nome] = "faltam fontes silver: " + ", ".join(faltam)
-                con.execute(f"drop view if exists gold.{nome}")
-                continue
-            try:
-                con.execute(f"create or replace view gold.{nome} as {sql.replace('@@DESDE@@', desde_minimo)}")
-                resultado.criadas.append(nome)
-            except duckdb.Error as exc:
-                resultado.erros[nome] = str(exc).splitlines()[0]
+        aplicar_views(con, settings, resultado)
     finally:
         con.close()
     return resultado

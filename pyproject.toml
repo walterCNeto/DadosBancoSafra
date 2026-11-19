@@ -24,6 +24,10 @@ dev = [
     "pytest>=8.0",
     "respx>=0.21",
 ]
+app = [
+    "streamlit>=1.40",
+    "plotly>=5.20",
+]
 
 [project.scripts]
 safra-dados = "safra_dados.cli:app"
